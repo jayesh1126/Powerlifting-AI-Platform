@@ -1,6 +1,7 @@
 import { z } from "zod";
-import { CHAT_MODES } from "@/lib/types";
 
+// No `mode` field: the AI runtime's planner decides which capabilities a
+// query needs — the client no longer routes AI behaviour.
 export const chatRequestSchema = z.object({
   message: z
     .string()
@@ -9,7 +10,6 @@ export const chatRequestSchema = z.object({
     .max(2000, "Message is too long (max 2000 characters)")
     .refine((v) => !/[<>{}]/.test(v), "Message contains invalid characters"),
   chatId: z.string().uuid().optional(),
-  mode: z.enum(CHAT_MODES).default("general"),
 });
 
 export type ChatRequest = z.infer<typeof chatRequestSchema>;

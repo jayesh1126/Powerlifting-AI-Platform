@@ -3,7 +3,6 @@ import { getAuth } from "@/lib/supabase/server";
 import { chatRequestSchema } from "@/lib/schemas";
 import { checkQuota } from "@/lib/quota";
 import {
-  countMessagesForChat,
   createChat,
   createMessages,
   getChatOwner,
@@ -11,11 +10,26 @@ import {
   updateChatSummary,
 } from "@/lib/db";
 import { decryptString } from "@/lib/encryption";
-import { streamChatCompletion, summarizeChat } from "@/lib/orchestrator";
+import {
+  streamChatCompletion,
+  type OrchestratorCompletion,
+  type Subscription,
+} from "@/lib/orchestrator";
 import { logger } from "@/lib/logger";
 import type { ChatRole } from "@/lib/types";
 
 export const runtime = "nodejs";
+
+/**
+ * How many recent messages we ship to the AI runtime. Deliberately
+ * generous: the runtime's context builder decides how much of the window
+ * each subscription tier actually uses. We just avoid shipping entire
+ * 300-message conversations over the wire.
+ */
+const MESSAGE_WINDOW = 30;
+
+/** Billing was dropped from this port; everyone is free-tier for now. */
+const SUBSCRIPTION: Subscription = "free";
 
 /**
  * Chat gateway. This route deliberately does NO AI work:
@@ -23,8 +37,12 @@ export const runtime = "nodejs";
  *   2. validate input
  *   3. authorize (quota + chat ownership)
  *   4. load conversation context from the DB (never trusted from the client)
- *   5. proxy to the Python orchestrator and stream its response back
- *   6. persist messages + refresh the rolling summary in the background
+ *   5. proxy to the Python AI runtime, forwarding its token stream
+ *   6. persist messages + the runtime's refreshed summary in the background
+ *
+ * The runtime decides everything AI: which tools run, how much context is
+ * used, when the summary refreshes. We just pass what we know (recent
+ * messages, summary, counts, subscription) and store what comes back.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -50,11 +68,10 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-    const { message, chatId, mode } = parsed.data;
+    const { message, chatId } = parsed.data;
     logger.info("[api/chat] Incoming request", {
       userId,
       chatId: chatId ?? "new",
-      mode,
     });
 
     // --- 3. Quota ---
@@ -108,39 +125,38 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // --- 5. Load recent context server-side ---
+    // --- 5. Load conversation context server-side ---
     const { data: history } = chatId
       ? await getMessagesForChat(supabase, userId, targetChatId)
       : { data: [] };
-    const lastMessages = (history ?? []).slice(-8).map((m) => ({
-      role: m.role as ChatRole,
-      content: m.content,
-    }));
+    const totalMessageCount = history?.length ?? 0;
+    const recentMessages = (history ?? [])
+      .slice(-MESSAGE_WINDOW)
+      .map((m) => ({ role: m.role as ChatRole, content: m.content }));
 
-    // --- 6. Stream from the orchestrator ---
-    const stream = await streamChatCompletion({
+    // --- 6. Stream from the AI runtime ---
+    const { textStream, completion } = await streamChatCompletion({
       user_id: userId,
       chat_id: targetChatId,
-      message,
-      mode,
+      messages: [...recentMessages, { role: "User", content: message }],
       summary,
-      last_messages: lastMessages,
+      total_message_count: totalMessageCount,
+      user_context: { subscription: SUBSCRIPTION },
+      request_context: {
+        locale:
+          request.headers.get("accept-language")?.split(",")[0] ?? undefined,
+      },
     });
 
-    // One copy goes to the client, the other is drained for persistence.
-    const [clientStream, persistStream] = stream.tee();
-
     void persistConversation({
-      persistStream,
+      completion,
       supabase,
       userId,
       chatId: targetChatId,
       userMessage: message,
-      summary,
-      lastMessages,
     });
 
-    return new Response(clientStream, { headers: responseHeaders });
+    return new Response(textStream, { headers: responseHeaders });
   } catch (err) {
     logger.error("[api/chat] Request failed", { err });
     return NextResponse.json(
@@ -154,36 +170,29 @@ export async function POST(request: NextRequest) {
   }
 }
 
-/** Drains the teed stream, persists both messages, refreshes summary. */
+/**
+ * Waits for the runtime stream to finish, then persists both messages and
+ * (when the runtime refreshed it) the rolling summary. If the stream
+ * errored, nothing is persisted — a partial answer the user never fully
+ * received should not become conversation history.
+ */
 async function persistConversation({
-  persistStream,
+  completion,
   supabase,
   userId,
   chatId,
   userMessage,
-  summary,
-  lastMessages,
 }: {
-  persistStream: ReadableStream<Uint8Array>;
+  completion: Promise<OrchestratorCompletion>;
   supabase: Awaited<ReturnType<typeof getAuth>>["supabase"];
   userId: string;
   chatId: string;
   userMessage: string;
-  summary: string | null;
-  lastMessages: { role: ChatRole; content: string }[];
 }) {
   try {
-    const reader = persistStream.getReader();
-    const decoder = new TextDecoder();
-    let fullMessage = "";
-    for (;;) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      fullMessage += decoder.decode(value, { stream: true });
-    }
-    fullMessage += decoder.decode();
+    const { fullText, summary } = await completion;
 
-    if (!fullMessage.trim()) {
+    if (!fullText.trim()) {
       logger.warn("[api/chat] Empty assistant response — nothing persisted", {
         userId,
         chatId,
@@ -195,29 +204,21 @@ async function persistConversation({
       { chat_id: chatId, content: userMessage, role: "User", user_id: userId },
       {
         chat_id: chatId,
-        content: fullMessage,
+        content: fullText,
         role: "Assistant",
         user_id: userId,
       },
     ]);
     if (error) throw new Error("Failed to insert messages");
-    logger.info("[api/chat] Conversation persisted", { userId, chatId });
 
-    // Refresh the rolling summary early in a chat, then every ~5 exchanges.
-    const { count } = await countMessagesForChat(supabase, userId, chatId);
-    if (count === 2 || count % 10 === 0) {
-      const newSummary = await summarizeChat({
-        existing_summary: summary,
-        messages: [
-          ...lastMessages,
-          { role: "User", content: userMessage },
-          { role: "Assistant", content: fullMessage },
-        ],
-      });
-      if (newSummary) {
-        await updateChatSummary(supabase, chatId, userId, newSummary);
-      }
+    if (summary) {
+      await updateChatSummary(supabase, chatId, userId, summary);
     }
+    logger.info("[api/chat] Conversation persisted", {
+      userId,
+      chatId,
+      summaryUpdated: Boolean(summary),
+    });
   } catch (err) {
     logger.error("[api/chat] Post-stream persistence failed", {
       err,

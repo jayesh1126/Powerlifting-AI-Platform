@@ -3,6 +3,11 @@ import { NextResponse, type NextRequest } from "next/server";
 
 const PROTECTED_PREFIXES = ["/chat", "/settings", "/api/chat", "/api/chats", "/api/account"];
 
+// Reject oversized API request bodies before any parsing happens (parity
+// with the old app's body-size middleware). The chat schema caps messages
+// at 2000 chars anyway — anything near this limit is not a real request.
+const MAX_API_BODY_BYTES = 50_000;
+
 /**
  * Proxy (Next 16 rename of middleware): refreshes the Supabase session on
  * every matched request and redirects unauthenticated users away from
@@ -11,6 +16,16 @@ const PROTECTED_PREFIXES = ["/chat", "/settings", "/api/chat", "/api/chats", "/a
  * the only one.
  */
 export async function proxy(request: NextRequest) {
+  if (request.nextUrl.pathname.startsWith("/api/")) {
+    const contentLength = Number(request.headers.get("content-length") ?? 0);
+    if (contentLength > MAX_API_BODY_BYTES) {
+      return NextResponse.json(
+        { success: false, message: "Request body too large" },
+        { status: 413 }
+      );
+    }
+  }
+
   let response = NextResponse.next({ request });
 
   const supabase = createServerClient(

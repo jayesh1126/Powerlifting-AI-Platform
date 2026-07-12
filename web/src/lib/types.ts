@@ -10,11 +10,3 @@ export type MessageInsert = Database["public"]["Tables"]["messages"]["Insert"];
 export type ChatInsert = Database["public"]["Tables"]["chats"]["Insert"];
 
 export type ChatRole = "User" | "Assistant";
-
-export const CHAT_MODES = [
-  "general",
-  "program",
-  "openpowerlifting_analytics",
-] as const;
-
-export type ChatMode = (typeof CHAT_MODES)[number];

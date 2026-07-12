@@ -1,0 +1,6 @@
+# Local/staging: plain HTTP on :80.
+# Caddy fronts ONLY the Next.js gateway. The orchestrator is never exposed —
+# it is reachable solely inside the docker network via its internal API key.
+:80 {
+	reverse_proxy web:3000
+}

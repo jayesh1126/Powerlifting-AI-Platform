@@ -6,7 +6,6 @@ import Image from "next/image";
 import toast from "react-hot-toast";
 import { ArrowUp } from "lucide-react";
 import { Markdown } from "@/components/chat/markdown";
-import type { ChatMode } from "@/lib/types";
 import { cn, formatDateTime } from "@/lib/utils";
 
 export interface DisplayMessage {
@@ -15,12 +14,6 @@ export interface DisplayMessage {
   content: string;
   created_at: string;
 }
-
-const MODE_OPTIONS: { value: ChatMode; label: string }[] = [
-  { value: "general", label: "General Q&A" },
-  { value: "program", label: "Program builder" },
-  { value: "openpowerlifting_analytics", label: "OpenPowerlifting" },
-];
 
 const MAX_INPUT_LENGTH = 2000;
 
@@ -49,7 +42,6 @@ export function ChatView({
   const [input, setInput] = useState("");
   const [pendingAiMessage, setPendingAiMessage] = useState("");
   const [isSending, setIsSending] = useState(false);
-  const [mode, setMode] = useState<ChatMode>("general");
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -87,7 +79,6 @@ export function ChatView({
         body: JSON.stringify({
           message: userMessage,
           chatId: activeChatId,
-          mode,
         }),
       });
 
@@ -225,20 +216,9 @@ export function ChatView({
               className="w-full resize-none bg-transparent px-3.5 pt-3 pb-1 text-sm focus:outline-none placeholder:text-gray-400"
             />
 
-            <div className="flex items-center justify-between gap-2 px-2 pb-2">
-              <select
-                value={mode}
-                onChange={(e) => setMode(e.target.value as ChatMode)}
-                className="h-8 rounded-lg border border-gray-200 bg-gray-50 px-2 text-xs text-gray-700 cursor-pointer focus:outline-none hover:bg-gray-100 transition-colors"
-                aria-label="Chat mode"
-              >
-                {MODE_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
-
+            {/* The old mode selector lived here — routing is now the AI
+                runtime's job (its planner picks capabilities per query). */}
+            <div className="flex items-center justify-end gap-2 px-2 pb-2">
               <div className="flex items-center gap-3">
                 <span className="text-[11px] text-gray-400 tabular-nums">
                   {monthlyRequests}/{monthlyLimit} this month

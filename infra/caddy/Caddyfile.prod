@@ -1,0 +1,12 @@
+# Production: Caddy terminates TLS (automatic Let's Encrypt) and fronts
+# ONLY the Next.js gateway. The orchestrator is never exposed — it is
+# reachable solely inside the docker network via its internal API key.
+
+www.powerlifting-ai.com {
+	redir https://powerlifting-ai.com{uri}
+}
+
+powerlifting-ai.com {
+	encode gzip
+	reverse_proxy web:3000
+}

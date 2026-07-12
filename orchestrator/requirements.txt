@@ -3,10 +3,11 @@ uvicorn[standard]>=0.32
 pydantic>=2.9
 pydantic-settings>=2.6
 
-# Uncomment as the real pipelines get built:
-# langchain
-# langgraph
-# langchain-openai
-# neo4j
-# supabase
-# psycopg[binary]
+# AI runtime
+openai>=1.55          # OpenAI-compatible client (used against OpenRouter too)
+httpx>=0.27           # Supabase PostgREST RPC calls (hybrid vector search)
+asyncpg>=0.29         # read-only OpenPowerlifting Postgres
+langgraph>=1.2        # runtime graph orchestration (app/runtime/graph.py)
+
+# Later:
+# deepeval / ragas     # evaluation

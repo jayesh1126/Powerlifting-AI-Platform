@@ -1,0 +1,12 @@
+fastapi>=0.115
+uvicorn[standard]>=0.32
+pydantic>=2.9
+pydantic-settings>=2.6
+
+# Uncomment as the real pipelines get built:
+# langchain
+# langgraph
+# langchain-openai
+# neo4j
+# supabase
+# psycopg[binary]

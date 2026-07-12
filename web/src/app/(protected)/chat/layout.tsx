@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { getAuth } from "@/lib/supabase/server";
 import { getAllChats } from "@/lib/db";
-import { Sidebar } from "@/components/chat/sidebar";
+import { ChatShell } from "@/components/chat/chat-shell";
 
 export default async function ChatLayout({
   children,
@@ -13,10 +13,5 @@ export default async function ChatLayout({
 
   const { data: chats } = await getAllChats(supabase, claims.sub);
 
-  return (
-    <div className="flex h-full w-full overflow-hidden">
-      <Sidebar chats={chats ?? []} />
-      <main className="flex-1 min-w-0 h-full">{children}</main>
-    </div>
-  );
+  return <ChatShell chats={chats ?? []}>{children}</ChatShell>;
 }

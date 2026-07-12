@@ -3,19 +3,14 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 export function DeleteAccountButton() {
   const router = useRouter();
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
   async function handleDelete() {
-    if (
-      !window.confirm(
-        "Permanently delete your account and all data? This cannot be undone."
-      )
-    ) {
-      return;
-    }
     setIsDeleting(true);
     try {
       const res = await fetch("/api/account", { method: "DELETE" });
@@ -26,16 +21,29 @@ export function DeleteAccountButton() {
     } catch {
       toast.error("Failed to delete account. Please try again.");
       setIsDeleting(false);
+      setConfirmOpen(false);
     }
   }
 
   return (
-    <button
-      onClick={handleDelete}
-      disabled={isDeleting}
-      className="px-4 py-2 rounded-lg bg-red-600 text-white text-sm font-medium hover:bg-red-500 disabled:opacity-50 cursor-pointer transition-colors"
-    >
-      {isDeleting ? "Deleting..." : "Delete account"}
-    </button>
+    <>
+      <button
+        onClick={() => setConfirmOpen(true)}
+        className="px-4 py-2 rounded-lg bg-red-600 text-white text-sm font-medium hover:bg-red-500 cursor-pointer transition-colors"
+      >
+        Delete account
+      </button>
+
+      <ConfirmDialog
+        open={confirmOpen}
+        title="Delete your account?"
+        description="Your account, chats, and all associated data will be permanently deleted. This cannot be undone."
+        confirmLabel="Delete forever"
+        busyLabel="Deleting..."
+        busy={isDeleting}
+        onConfirm={handleDelete}
+        onClose={() => setConfirmOpen(false)}
+      />
+    </>
   );
 }

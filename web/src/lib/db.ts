@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
 import type { ChatInsert, MessageInsert } from "@/lib/types";
 import { encryptString, decryptString } from "@/lib/encryption";
+import { logger } from "@/lib/logger";
 
 type DbClient = SupabaseClient<Database>;
 
@@ -15,7 +16,7 @@ function safeDecrypt(value: string, fallback: string): string {
   try {
     return decryptString(value);
   } catch (err) {
-    console.error("[DB] Failed to decrypt value:", err);
+    logger.error("[DB] Failed to decrypt value", { err: err });
     return fallback;
   }
 }
@@ -28,7 +29,7 @@ export async function getAllChats(dbClient: DbClient, userId: string) {
     .order("updated_at", { ascending: false });
 
   if (error) {
-    console.error("[DB] getAllChats failed:", error.message);
+    logger.error("[DB] getAllChats failed", { err: error.message });
     return { data: null, error };
   }
 
@@ -54,7 +55,7 @@ export async function getMessagesForChat(
     .order("role", { ascending: false });
 
   if (error) {
-    console.error("[DB] getMessagesForChat failed:", error.message);
+    logger.error("[DB] getMessagesForChat failed", { err: error.message });
     return { data: null, error };
   }
 
@@ -76,7 +77,7 @@ export async function countMessagesForChat(
     .eq("user_id", userId)
     .eq("chat_id", chatId);
 
-  if (error) console.error("[DB] countMessagesForChat failed:", error.message);
+  if (error) logger.error("[DB] countMessagesForChat failed", { err: error.message });
   return { count: count ?? 0, error };
 }
 
@@ -87,7 +88,7 @@ export async function createChat(dbClient: DbClient, chat: ChatInsert) {
     .select("id")
     .single();
 
-  if (error) console.error("[DB] createChat failed:", error.message);
+  if (error) logger.error("[DB] createChat failed", { err: error.message });
   return { data, error };
 }
 
@@ -102,7 +103,7 @@ export async function createMessages(
   }));
 
   const { error } = await dbClient.from("messages").insert(encrypted);
-  if (error) console.error("[DB] createMessages failed:", error.message);
+  if (error) logger.error("[DB] createMessages failed", { err: error.message });
   return { error };
 }
 
@@ -119,7 +120,7 @@ export async function deleteChat(
     .select("id")
     .single();
 
-  if (error) console.error("[DB] deleteChat failed:", error.message);
+  if (error) logger.error("[DB] deleteChat failed", { err: error.message });
   return { data, error };
 }
 
@@ -131,7 +132,7 @@ export async function getChatOwner(dbClient: DbClient, chatId: string) {
     .eq("id", chatId)
     .single();
 
-  if (error) console.error("[DB] getChatOwner failed:", error.message);
+  if (error) logger.error("[DB] getChatOwner failed", { err: error.message });
   return { data, error };
 }
 
@@ -149,7 +150,7 @@ export async function updateChatSummary(
     .select("id")
     .single();
 
-  if (error) console.error("[DB] updateChatSummary failed:", error.message);
+  if (error) logger.error("[DB] updateChatSummary failed", { err: error.message });
   return { data, error };
 }
 
@@ -167,7 +168,7 @@ export async function getMonthlyRequestCount(
     .maybeSingle();
 
   if (error) {
-    console.error("[DB] getMonthlyRequestCount failed:", error.message);
+    logger.error("[DB] getMonthlyRequestCount failed", { err: error.message });
   }
   return { count: data?.count ?? 0, error };
 }
@@ -175,6 +176,6 @@ export async function getMonthlyRequestCount(
 /** Deletes the auth user (cascades to their data via FK/RLS policies). */
 export async function deleteUserAccount(adminClient: DbClient, userId: string) {
   const { error } = await adminClient.auth.admin.deleteUser(userId);
-  if (error) console.error("[DB] deleteUserAccount failed:", error.message);
+  if (error) logger.error("[DB] deleteUserAccount failed", { err: error.message });
   return { error };
 }

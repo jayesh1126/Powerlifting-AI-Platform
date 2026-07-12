@@ -1,5 +1,6 @@
 import "server-only";
 import { serverEnv } from "@/lib/env";
+import { logger } from "@/lib/logger";
 import type { ChatMode, ChatRole } from "@/lib/types";
 
 /**
@@ -58,14 +59,14 @@ export async function summarizeChat(input: {
     });
 
     if (!res.ok) {
-      console.error(`[Orchestrator] summarize failed (${res.status})`);
+      logger.error("[Orchestrator] summarize failed", { status: res.status });
       return null;
     }
 
     const data = (await res.json()) as { summary: string };
     return data.summary ?? null;
   } catch (err) {
-    console.error("[Orchestrator] summarize request errored:", err);
+    logger.error("[Orchestrator] summarize request errored", { err });
     return null;
   }
 }

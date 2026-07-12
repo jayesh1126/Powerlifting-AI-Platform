@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getAuth } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { deleteUserAccount } from "@/lib/db";
+import { logger } from "@/lib/logger";
 
 /** Permanently deletes the authenticated user's account. */
 export async function DELETE() {
@@ -21,6 +22,8 @@ export async function DELETE() {
       { status: 500 }
     );
   }
+
+  logger.info("[api/account] Account deleted", { userId: claims.sub });
 
   // Clear the local session cookies.
   await supabase.auth.signOut();

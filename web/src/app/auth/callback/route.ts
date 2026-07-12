@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { logger } from "@/lib/logger";
 
 /**
  * OAuth callback — exchanges the auth code for a session and redirects
@@ -18,7 +19,9 @@ export async function GET(request: Request) {
       const safeNext = next.startsWith("/") ? next : "/chat";
       return NextResponse.redirect(`${origin}${safeNext}`);
     }
-    console.error("[auth/callback] Code exchange failed:", error.message);
+    logger.error("[auth/callback] Code exchange failed", {
+      err: error.message,
+    });
   }
 
   return NextResponse.redirect(`${origin}/?auth_error=1`);

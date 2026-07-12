@@ -1,7 +1,9 @@
+import { cache } from "react";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import type { Database } from "@/lib/database.types";
 import { publicEnv } from "@/lib/env";
+import { logger } from "@/lib/logger";
 
 /**
  * Server client bound to the request cookies — used in server components,
@@ -42,13 +44,17 @@ export async function createClient() {
 /**
  * Returns the RLS-scoped client plus locally-verified JWT claims for the
  * current user, or null claims when not authenticated.
+ *
+ * Wrapped in React cache(): layouts, pages and route handlers can all
+ * call getAuth() freely — within one request it verifies exactly once.
  */
-export async function getAuth() {
+export const getAuth = cache(async () => {
   const supabase = await createClient();
   const { data, error } = await supabase.auth.getClaims();
   if (error) {
-    console.error("[Auth] Failed to verify JWT claims:", error.message);
+    // Expected for anonymous visitors (no session cookie) — keep quiet.
+    logger.debug("[Auth] No verifiable session", { err: error.message });
     return { supabase, claims: null };
   }
   return { supabase, claims: data?.claims ?? null };
-}
+});

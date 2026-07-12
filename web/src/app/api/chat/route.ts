@@ -12,6 +12,7 @@ import {
 } from "@/lib/db";
 import { decryptString } from "@/lib/encryption";
 import { streamChatCompletion, summarizeChat } from "@/lib/orchestrator";
+import { logger } from "@/lib/logger";
 import type { ChatRole } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -50,10 +51,19 @@ export async function POST(request: NextRequest) {
       );
     }
     const { message, chatId, mode } = parsed.data;
+    logger.info("[api/chat] Incoming request", {
+      userId,
+      chatId: chatId ?? "new",
+      mode,
+    });
 
     // --- 3. Quota ---
     const quota = await checkQuota(supabase, userId);
     if (!quota.allowed) {
+      logger.warn("[api/chat] Blocked by quota", {
+        userId,
+        status: quota.status,
+      });
       return NextResponse.json(
         { success: false, message: quota.message },
         { status: quota.status }
@@ -80,6 +90,10 @@ export async function POST(request: NextRequest) {
     } else {
       const { data: chat, error } = await getChatOwner(supabase, chatId);
       if (error || !chat || chat.user_id !== userId) {
+        logger.warn("[api/chat] Chat not found or not owned", {
+          userId,
+          chatId,
+        });
         return NextResponse.json(
           { success: false, message: "Chat not found" },
           { status: 404 }
@@ -128,7 +142,7 @@ export async function POST(request: NextRequest) {
 
     return new Response(clientStream, { headers: responseHeaders });
   } catch (err) {
-    console.error("[api/chat] Request failed:", err);
+    logger.error("[api/chat] Request failed", { err });
     return NextResponse.json(
       {
         success: false,
@@ -170,7 +184,10 @@ async function persistConversation({
     fullMessage += decoder.decode();
 
     if (!fullMessage.trim()) {
-      console.warn("[api/chat] Empty assistant response — nothing persisted");
+      logger.warn("[api/chat] Empty assistant response — nothing persisted", {
+        userId,
+        chatId,
+      });
       return;
     }
 
@@ -184,6 +201,7 @@ async function persistConversation({
       },
     ]);
     if (error) throw new Error("Failed to insert messages");
+    logger.info("[api/chat] Conversation persisted", { userId, chatId });
 
     // Refresh the rolling summary early in a chat, then every ~5 exchanges.
     const { count } = await countMessagesForChat(supabase, userId, chatId);
@@ -201,6 +219,10 @@ async function persistConversation({
       }
     }
   } catch (err) {
-    console.error("[api/chat] Post-stream persistence failed:", err);
+    logger.error("[api/chat] Post-stream persistence failed", {
+      err,
+      userId,
+      chatId,
+    });
   }
 }

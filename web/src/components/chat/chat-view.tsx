@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import toast from "react-hot-toast";
+import { ArrowUp } from "lucide-react";
 import { Markdown } from "@/components/chat/markdown";
 import type { ChatMode } from "@/lib/types";
 import { cn, formatDateTime } from "@/lib/utils";
@@ -16,9 +17,9 @@ export interface DisplayMessage {
 }
 
 const MODE_OPTIONS: { value: ChatMode; label: string }[] = [
-  { value: "general", label: "General Q&A · Powerlifting knowledge" },
-  { value: "program", label: "Program builder · Custom training" },
-  { value: "openpowerlifting_analytics", label: "OpenPowerlifting analytics" },
+  { value: "general", label: "General Q&A" },
+  { value: "program", label: "Program builder" },
+  { value: "openpowerlifting_analytics", label: "OpenPowerlifting" },
 ];
 
 const MAX_INPUT_LENGTH = 2000;
@@ -146,105 +147,120 @@ export function ChatView({
   }
 
   return (
-    <div className="flex flex-col h-full bg-gray-50">
+    <div className="flex flex-col h-full min-h-0 bg-gray-50">
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-3 py-4 space-y-4">
-        {messages.length === 0 && !isSending && (
-          <div className="h-full flex items-center justify-center text-center text-gray-400 text-sm">
-            Ask anything about powerlifting — technique, programming, or meet
-            data.
-          </div>
-        )}
+      <div className="flex-1 min-h-0 overflow-y-auto">
+        <div className="mx-auto w-full max-w-3xl px-3 sm:px-4 py-4 sm:py-6 space-y-5">
+          {messages.length === 0 && !isSending && (
+            <div className="flex flex-col items-center justify-center text-center gap-3 pt-24 sm:pt-32">
+              <Image
+                src="/logo.png"
+                alt="PowerliftingAI"
+                width={56}
+                height={56}
+                className="h-14 w-auto opacity-90"
+              />
+              <p className="text-gray-500 text-sm max-w-xs">
+                Ask anything about powerlifting — technique, programming, or
+                meet data.
+              </p>
+            </div>
+          )}
 
-        {messages.map((msg) => (
-          <MessageBubble
-            key={msg.id}
-            role={msg.role}
-            timestamp={msg.created_at}
-            userAvatarUrl={userAvatarUrl}
-          >
-            <Markdown>{msg.content}</Markdown>
-          </MessageBubble>
-        ))}
+          {messages.map((msg) => (
+            <MessageBubble
+              key={msg.id}
+              role={msg.role}
+              timestamp={msg.created_at}
+              userAvatarUrl={userAvatarUrl}
+            >
+              <Markdown invert={msg.role === "User"}>{msg.content}</Markdown>
+            </MessageBubble>
+          ))}
 
-        {/* Streaming preview */}
-        {pendingAiMessage && (
-          <MessageBubble role="Assistant" dimmed>
-            <Markdown>{pendingAiMessage}</Markdown>
-          </MessageBubble>
-        )}
+          {/* Streaming preview */}
+          {pendingAiMessage && (
+            <MessageBubble role="Assistant" dimmed>
+              <Markdown>{pendingAiMessage}</Markdown>
+            </MessageBubble>
+          )}
 
-        {/* Typing indicator */}
-        {isSending && !pendingAiMessage && (
-          <MessageBubble role="Assistant" dimmed>
-            <span className="text-sm italic text-gray-400 animate-pulse">
-              Thinking…
-            </span>
-          </MessageBubble>
-        )}
+          {/* Typing indicator */}
+          {isSending && !pendingAiMessage && (
+            <MessageBubble role="Assistant" dimmed>
+              <span className="text-sm italic text-gray-400 animate-pulse">
+                Thinking…
+              </span>
+            </MessageBubble>
+          )}
 
-        <div ref={bottomRef} />
+          <div ref={bottomRef} />
+        </div>
       </div>
 
       {/* Input */}
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          handleSend();
-        }}
-        className="border-t border-gray-200 bg-white px-2 py-2 sm:px-3"
-      >
-        <textarea
-          value={input}
-          onChange={(e) => {
-            if (e.target.value.length <= MAX_INPUT_LENGTH)
-              setInput(e.target.value);
+      <div className="border-t border-gray-200 bg-white shrink-0">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleSend();
           }}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
-              e.preventDefault();
-              handleSend();
-            }
-          }}
-          placeholder="Say something to PowerliftingAI..."
-          rows={2}
-          className="w-full resize-none rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black/20"
-        />
+          className="mx-auto w-full max-w-3xl px-3 sm:px-4 pt-2.5 pb-1.5"
+        >
+          <div className="rounded-xl border border-gray-300 bg-white focus-within:border-gray-400 focus-within:ring-2 focus-within:ring-black/10 transition-shadow">
+            <textarea
+              value={input}
+              onChange={(e) => {
+                if (e.target.value.length <= MAX_INPUT_LENGTH)
+                  setInput(e.target.value);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSend();
+                }
+              }}
+              placeholder="Say something to PowerliftingAI..."
+              rows={2}
+              className="w-full resize-none bg-transparent px-3.5 pt-3 pb-1 text-sm focus:outline-none placeholder:text-gray-400"
+            />
 
-        <div className="flex items-center justify-between mt-1">
-          <span className="text-[10px] text-gray-400">
-            {input.length}/{MAX_INPUT_LENGTH} • {monthlyRequests}/{monthlyLimit}{" "}
-            used this month
-          </span>
+            <div className="flex items-center justify-between gap-2 px-2 pb-2">
+              <select
+                value={mode}
+                onChange={(e) => setMode(e.target.value as ChatMode)}
+                className="h-8 rounded-lg border border-gray-200 bg-gray-50 px-2 text-xs text-gray-700 cursor-pointer focus:outline-none hover:bg-gray-100 transition-colors"
+                aria-label="Chat mode"
+              >
+                {MODE_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
 
-          <div className="flex items-center gap-2">
-            <select
-              value={mode}
-              onChange={(e) => setMode(e.target.value as ChatMode)}
-              className="h-7 rounded-md border border-gray-200 bg-white px-2 text-[10px] sm:text-xs text-gray-700 cursor-pointer"
-            >
-              {MODE_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-
-            <button
-              type="submit"
-              disabled={!input.trim() || isSending}
-              className="h-7 px-4 rounded-md bg-black text-white text-xs font-medium disabled:opacity-40 cursor-pointer hover:bg-gray-800 transition-colors"
-            >
-              {isSending ? "…" : "Send"}
-            </button>
+              <div className="flex items-center gap-3">
+                <span className="text-[11px] text-gray-400 tabular-nums">
+                  {monthlyRequests}/{monthlyLimit} this month
+                </span>
+                <button
+                  type="submit"
+                  disabled={!input.trim() || isSending}
+                  className="h-8 w-8 flex items-center justify-center rounded-lg bg-black text-white disabled:opacity-30 cursor-pointer hover:bg-gray-800 transition-colors"
+                  aria-label="Send message"
+                >
+                  <ArrowUp className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
           </div>
-        </div>
 
-        <p className="text-[11px] text-gray-400 text-center mt-1">
-          ⚠️ PowerliftingAI can make mistakes. Always verify training or health
-          information with a qualified professional.
-        </p>
-      </form>
+          <p className="text-[11px] text-gray-400 text-center mt-1.5">
+            PowerliftingAI can make mistakes — verify training or health advice
+            with a qualified professional.
+          </p>
+        </form>
+      </div>
     </div>
   );
 }
@@ -266,32 +282,34 @@ function MessageBubble({
   const avatarSrc = isUser ? userAvatarUrl : "/logo.png";
 
   return (
-    <div className={cn("flex items-end gap-2", isUser && "flex-row-reverse")}>
+    <div className={cn("flex items-start gap-2", isUser && "flex-row-reverse")}>
       {avatarSrc && (
         <Image
           src={avatarSrc}
           alt={isUser ? "You" : "PowerliftingAI"}
           width={28}
           height={28}
-          className="h-7 w-7 rounded-full border border-gray-200 bg-white object-contain shrink-0"
+          className="h-7 w-7 rounded-full border border-gray-200 bg-white object-contain shrink-0 mt-0.5"
           unoptimized={isUser} // external Google avatar URL
         />
       )}
-      <div
-        className={cn(
-          "max-w-[85%] sm:max-w-[75%] rounded-2xl px-4 py-2 shadow-sm",
-          isUser
-            ? "bg-black text-white [&_.prose]:text-white"
-            : "bg-white border border-gray-200 text-gray-900",
-          dimmed && "opacity-80"
-        )}
-      >
-        {children}
+      <div className="max-w-[85%] sm:max-w-[75%] space-y-0.5">
+        <div
+          className={cn(
+            "rounded-2xl px-3.5 py-2 shadow-sm",
+            isUser
+              ? "bg-black text-white rounded-tr-sm"
+              : "bg-white border border-gray-200 text-gray-900 rounded-tl-sm",
+            dimmed && "opacity-80"
+          )}
+        >
+          {children}
+        </div>
         {timestamp && (
           <p
             className={cn(
-              "text-[10px] mt-1 text-right",
-              isUser ? "text-gray-300" : "text-gray-400"
+              "text-[10px] text-gray-400 px-1",
+              isUser && "text-right"
             )}
           >
             {formatDateTime(timestamp)}

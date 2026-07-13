@@ -20,6 +20,7 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   // Minimal server bundle for the Docker image (copied from .next/standalone).
   output: "standalone",
+  poweredByHeader: false,
   // Hide the floating Next.js dev-tools badge (bottom-left in dev mode).
   devIndicators: false,
   async headers() {

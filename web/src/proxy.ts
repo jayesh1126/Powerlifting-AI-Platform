@@ -17,8 +17,17 @@ const MAX_API_BODY_BYTES = 50_000;
  */
 export async function proxy(request: NextRequest) {
   if (request.nextUrl.pathname.startsWith("/api/")) {
-    const contentLength = Number(request.headers.get("content-length") ?? 0);
-    if (contentLength > MAX_API_BODY_BYTES) {
+    const hasBody = ["POST", "PUT", "PATCH"].includes(request.method);
+    const contentLength = request.headers.get("content-length");
+    if (hasBody && !contentLength) {
+      // Chunked bodies would bypass the size check below; no legitimate
+      // client of this API streams request bodies.
+      return NextResponse.json(
+        { success: false, message: "Content-Length required" },
+        { status: 411 }
+      );
+    }
+    if (Number(contentLength ?? 0) > MAX_API_BODY_BYTES) {
       return NextResponse.json(
         { success: false, message: "Request body too large" },
         { status: 413 }

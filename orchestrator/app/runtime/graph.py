@@ -99,7 +99,11 @@ async def verify_node(state: RuntimeState) -> dict:
     the user already received."""
     metrics = state["metrics"]
     metrics.verifier_issues = verify(
-        state["ctx"], state["plan"], state["answer"], metrics.tools_used
+        state["ctx"],
+        state["plan"],
+        state["answer"],
+        metrics.tools_used,
+        metrics.tool_errors,
     )
     return {}
 

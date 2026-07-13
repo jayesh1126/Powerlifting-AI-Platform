@@ -1,16 +1,15 @@
-import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
+from app.config import get_settings
+from app.logging_setup import RequestIdMiddleware, configure_logging
 from app.routers.chat import router as chat_router
 from app.tools.opl import close_opl_pool
 from app.tools.retrieval import close_http_client
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s %(levelname)s %(name)s %(message)s",
-)
+_settings = get_settings()
+configure_logging(_settings.log_level, _settings.log_format)
 
 
 @asynccontextmanager
@@ -31,6 +30,7 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+app.add_middleware(RequestIdMiddleware)
 app.include_router(chat_router)
 
 

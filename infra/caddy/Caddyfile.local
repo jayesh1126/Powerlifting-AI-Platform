@@ -1,6 +1,12 @@
-# Local/staging: plain HTTP on :80.
+# Local production-mimic: same TLS-termination flow as prod, but Caddy's
+# internal CA issues the localhost certificate instead of Let's Encrypt
+# (browsers warn unless you trust Caddy's root CA — fine for testing).
+# http://localhost redirects to https automatically.
+#
 # Caddy fronts ONLY the Next.js gateway. The orchestrator is never exposed —
 # it is reachable solely inside the docker network via its internal API key.
-:80 {
+
+localhost {
+	encode gzip
 	reverse_proxy web:3000
 }

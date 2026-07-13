@@ -5,6 +5,7 @@ import { checkQuota } from "@/lib/quota";
 import {
   createChat,
   createMessages,
+  deleteChat,
   getChatOwner,
   getMessagesForChat,
   updateChatSummary,
@@ -45,6 +46,8 @@ const SUBSCRIPTION: Subscription = "free";
  * messages, summary, counts, subscription) and store what comes back.
  */
 export async function POST(request: NextRequest) {
+  // Correlates gateway and orchestrator logs for this request.
+  const requestId = crypto.randomUUID();
   try {
     // --- 1. Authenticate ---
     const { supabase, claims } = await getAuth();
@@ -70,6 +73,7 @@ export async function POST(request: NextRequest) {
     }
     const { message, chatId } = parsed.data;
     logger.info("[api/chat] Incoming request", {
+      requestId,
       userId,
       chatId: chatId ?? "new",
     });
@@ -135,18 +139,31 @@ export async function POST(request: NextRequest) {
       .map((m) => ({ role: m.role as ChatRole, content: m.content }));
 
     // --- 6. Stream from the AI runtime ---
-    const { textStream, completion } = await streamChatCompletion({
-      user_id: userId,
-      chat_id: targetChatId,
-      messages: [...recentMessages, { role: "User", content: message }],
-      summary,
-      total_message_count: totalMessageCount,
-      user_context: { subscription: SUBSCRIPTION },
-      request_context: {
-        locale:
-          request.headers.get("accept-language")?.split(",")[0] ?? undefined,
-      },
-    });
+    let stream;
+    try {
+      stream = await streamChatCompletion(
+        {
+          user_id: userId,
+          chat_id: targetChatId,
+          messages: [...recentMessages, { role: "User", content: message }],
+          summary,
+          total_message_count: totalMessageCount,
+          user_context: { subscription: SUBSCRIPTION },
+          request_context: {
+            locale:
+              request.headers.get("accept-language")?.split(",")[0] ??
+              undefined,
+          },
+        },
+        { requestId }
+      );
+    } catch (err) {
+      // Don't leave an empty chat in the sidebar when the runtime was
+      // never reached.
+      if (!chatId) void deleteChat(supabase, targetChatId, userId);
+      throw err;
+    }
+    const { textStream, completion } = stream;
 
     void persistConversation({
       completion,
@@ -154,11 +171,12 @@ export async function POST(request: NextRequest) {
       userId,
       chatId: targetChatId,
       userMessage: message,
+      requestId,
     });
 
     return new Response(textStream, { headers: responseHeaders });
   } catch (err) {
-    logger.error("[api/chat] Request failed", { err });
+    logger.error("[api/chat] Request failed", { requestId, err });
     return NextResponse.json(
       {
         success: false,
@@ -182,18 +200,21 @@ async function persistConversation({
   userId,
   chatId,
   userMessage,
+  requestId,
 }: {
   completion: Promise<OrchestratorCompletion>;
   supabase: Awaited<ReturnType<typeof getAuth>>["supabase"];
   userId: string;
   chatId: string;
   userMessage: string;
+  requestId: string;
 }) {
   try {
     const { fullText, summary } = await completion;
 
     if (!fullText.trim()) {
       logger.warn("[api/chat] Empty assistant response — nothing persisted", {
+        requestId,
         userId,
         chatId,
       });
@@ -215,12 +236,14 @@ async function persistConversation({
       await updateChatSummary(supabase, chatId, userId, summary);
     }
     logger.info("[api/chat] Conversation persisted", {
+      requestId,
       userId,
       chatId,
       summaryUpdated: Boolean(summary),
     });
   } catch (err) {
     logger.error("[api/chat] Post-stream persistence failed", {
+      requestId,
       err,
       userId,
       chatId,

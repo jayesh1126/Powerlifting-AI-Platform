@@ -39,6 +39,10 @@ class Settings(BaseSettings):
     max_tool_rounds: int = 5
     max_tool_result_chars: int = 20_000
 
+    # --- Logging --------------------------------------------------------------
+    log_level: str = "INFO"
+    log_format: str = "text"  # "json" in production (see infra/docker-compose.yml)
+
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
 

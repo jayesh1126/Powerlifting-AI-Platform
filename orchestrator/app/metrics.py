@@ -24,6 +24,7 @@ class RequestMetrics:
     prompt_tokens: int = 0
     completion_tokens: int = 0
     tools_used: list[str] = field(default_factory=list)
+    tool_errors: list[str] = field(default_factory=list)
     docs_retrieved: int = 0
     plan: dict = field(default_factory=dict)
     generator_model: str | None = None
@@ -47,6 +48,7 @@ class RequestMetrics:
             "prompt_tokens": self.prompt_tokens,
             "completion_tokens": self.completion_tokens,
             "tools_used": self.tools_used,
+            "tool_errors": self.tool_errors,
             "docs_retrieved": self.docs_retrieved,
             "plan": self.plan,
             "generator_model": self.generator_model,

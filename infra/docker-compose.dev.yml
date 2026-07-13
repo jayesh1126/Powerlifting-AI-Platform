@@ -1,0 +1,13 @@
+# Dev-only overlay: publishes the OPL database on loopback so an
+# orchestrator running on the host (uvicorn --reload) can reach it.
+# Never use on the VPS — the base compose keeps the DB unpublished.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d opl-db
+#
+# Matches OPL_DATABASE_URL=postgresql://opl:...@localhost:5433/openpowerlifting
+# in orchestrator/.env.
+
+services:
+  opl-db:
+    ports:
+      - "127.0.0.1:5433:5432"

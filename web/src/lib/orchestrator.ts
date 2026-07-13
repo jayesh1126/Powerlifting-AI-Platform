@@ -52,20 +52,28 @@ export interface OrchestratorStream {
   completion: Promise<OrchestratorCompletion>;
 }
 
-function headers() {
-  return {
-    "Content-Type": "application/json",
-    "X-Internal-Api-Key": serverEnv.orchestratorApiKey,
-  };
-}
+/**
+ * Hard cap on one runtime call, covering connection + full generation
+ * (multi-round tool use included). Prevents a hung orchestrator from
+ * pinning gateway workers indefinitely.
+ */
+const ORCHESTRATOR_TIMEOUT_MS = 180_000;
 
 export async function streamChatCompletion(
-  payload: OrchestratorChatPayload
+  payload: OrchestratorChatPayload,
+  opts: { requestId: string }
 ): Promise<OrchestratorStream> {
   const res = await fetch(`${serverEnv.orchestratorUrl}/v1/chat/stream`, {
     method: "POST",
-    headers: headers(),
+    headers: {
+      "Content-Type": "application/json",
+      "X-Internal-Api-Key": serverEnv.orchestratorApiKey,
+      // Propagated into every orchestrator log line for cross-service
+      // correlation.
+      "X-Request-Id": opts.requestId,
+    },
     body: JSON.stringify(payload),
+    signal: AbortSignal.timeout(ORCHESTRATOR_TIMEOUT_MS),
   });
 
   if (!res.ok || !res.body) {

@@ -129,7 +129,9 @@ Expected JSON:
         result = RewriteResult.model_validate_json(response.choices[0].message.content or "{}")
         # Drop hallucinated topics instead of failing the request.
         result.topics = [t for t in result.topics if t in CANONICAL_TOPICS]
-        logger.info("rewrite: %r topics=%s", result.standaloneQuery, result.topics)
+        # The rewritten query is user content — DEBUG only.
+        logger.debug("rewrite: %r topics=%s", result.standaloneQuery, result.topics)
+        logger.info("query rewritten, topics=%s", result.topics)
         return result
     except Exception:
         logger.exception("query rewrite failed, using raw query")

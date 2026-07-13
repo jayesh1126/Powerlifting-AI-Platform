@@ -33,9 +33,18 @@ export async function getAllChats(dbClient: DbClient, userId: string) {
     return { data: null, error };
   }
 
-  // Summaries are stored encrypted.
+  // Summaries and titles are stored encrypted. Titles written before
+  // title encryption landed are plaintext — fall back silently instead of
+  // logging an error per legacy row on every sidebar load.
   for (const chat of data) {
     if (chat.summary) chat.summary = safeDecrypt(chat.summary, "");
+    if (chat.title) {
+      try {
+        chat.title = decryptString(chat.title);
+      } catch {
+        /* legacy plaintext title */
+      }
+    }
   }
 
   return { data, error: null };
@@ -82,9 +91,14 @@ export async function countMessagesForChat(
 }
 
 export async function createChat(dbClient: DbClient, chat: ChatInsert) {
+  // The title is derived from the first user message, so it is message
+  // content and gets the same encryption-at-rest as messages/summaries.
   const { data, error } = await dbClient
     .from("chats")
-    .insert(chat)
+    .insert({
+      ...chat,
+      title: chat.title ? encryptString(chat.title) : chat.title,
+    })
     .select("id")
     .single();
 

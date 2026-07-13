@@ -1,0 +1,102 @@
+# Full production stack. Run from this directory:
+#
+#   cp .env.example .env        # fill in values
+#   docker compose up -d --build
+#
+# OpenPowerlifting data loads automatically on the FIRST boot of an empty
+# opl-db volume (init.sql runs from docker-entrypoint-initdb.d; needs
+# openipf-latest.csv in OPL_IMPORT_DIR — takes a few minutes, and the
+# orchestrator waits via the healthcheck). To re-load later:
+#
+#   docker compose exec opl-db psql -U opl -d openpowerlifting -f /docker-entrypoint-initdb.d/init.sql
+#
+# Exposure model: caddy is the ONLY service that publishes ports. web is
+# reachable only through caddy; orchestrator and opl-db exist only on the
+# internal network (orchestrator additionally requires the internal API key).
+
+name: powerlifting-ai
+
+services:
+  caddy:
+    image: caddy:2.10
+    restart: unless-stopped
+    ports:
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
+    volumes:
+      - ./caddy/Caddyfile.${CADDY_ENV:-local}:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - web
+    networks:
+      - app_net
+
+  web:
+    build:
+      context: ../web
+      args:
+        # Inlined into the client bundle at build time (public by definition).
+        NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
+        NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY}
+    restart: unless-stopped
+    env_file:
+      - ../web/.env
+    environment:
+      # Service-internal address overrides the localhost value in .env.
+      ORCHESTRATOR_URL: http://orchestrator:8000
+    depends_on:
+      - orchestrator
+    networks:
+      - app_net
+
+  orchestrator:
+    build: ../orchestrator
+    restart: unless-stopped
+    env_file:
+      - ../orchestrator/.env
+    environment:
+      OPL_DATABASE_URL: postgresql://${OPL_POSTGRES_USER:-opl}:${OPL_POSTGRES_PASSWORD}@opl-db:5432/${OPL_POSTGRES_DB:-openpowerlifting}
+      # Single-line JSON logs to match the web service (which switches on
+      # NODE_ENV=production), so one aggregator config parses both.
+      LOG_FORMAT: json
+      # Pinned so a stray LOG_LEVEL=DEBUG in the service .env can't leak
+      # user content into production logs (INFO+ is content-free).
+      LOG_LEVEL: INFO
+    depends_on:
+      opl-db:
+        condition: service_healthy
+    networks:
+      - app_net
+
+  opl-db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${OPL_POSTGRES_USER:-opl}
+      POSTGRES_PASSWORD: ${OPL_POSTGRES_PASSWORD}
+      POSTGRES_DB: ${OPL_POSTGRES_DB:-openpowerlifting}
+    volumes:
+      - opl_data:/var/lib/postgresql/data
+      - ./opl/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - ${OPL_IMPORT_DIR:-./opl/import}:/import:ro
+    healthcheck:
+      # -h 127.0.0.1 forces TCP: during first-boot init the entrypoint's
+      # temporary server only listens on the unix socket, so "healthy"
+      # means the data load has finished and the real server is up. The
+      # long start_period covers the multi-minute CSV load.
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U ${OPL_POSTGRES_USER:-opl} -d ${OPL_POSTGRES_DB:-openpowerlifting}"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 30m
+    networks:
+      - app_net
+
+volumes:
+  caddy_data:
+  caddy_config:
+  opl_data:
+
+networks:
+  app_net:

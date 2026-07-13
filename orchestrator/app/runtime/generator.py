@@ -220,13 +220,25 @@ async def generate(
         )
         for call in calls:
             tool = tools_by_name.get(call["name"])
-            logger.info("tool round %d: %s(%s)", round_index, call["name"], call["arguments"][:200])
+            logger.info("tool round %d: %s", round_index, call["name"])
+            # Arguments derive from user content — DEBUG only.
+            logger.debug("tool args: %s", call["arguments"][:200])
             metrics.tools_used.append(call["name"])
             result = (
                 await tool.run(call["arguments"])
                 if tool
                 else json.dumps({"error": f"Unknown tool {call['name']}"})
             )
+            # Our tools always return JSON; an object with "error" means the
+            # call failed (bad args, DB unreachable, ...). Recording it makes
+            # silent degradation visible in metrics and to the verifier.
+            try:
+                payload = json.loads(result)
+                if isinstance(payload, dict) and "error" in payload:
+                    metrics.tool_errors.append(call["name"])
+                    logger.warning("tool %s returned an error result", call["name"])
+            except ValueError:
+                pass
             messages.append(
                 {"role": "tool", "tool_call_id": call["id"], "content": result}
             )

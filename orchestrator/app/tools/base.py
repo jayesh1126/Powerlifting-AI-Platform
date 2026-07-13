@@ -44,7 +44,10 @@ class Tool(ABC):
         try:
             args = self.params_model.model_validate_json(raw_arguments or "{}")
         except ValidationError as e:
-            logger.warning("tool %s got invalid args: %s", self.name, e)
+            # Validation detail includes the model's argument values (user
+            # content) — keep it at DEBUG.
+            logger.warning("tool %s got invalid args (%d issues)", self.name, len(e.errors()))
+            logger.debug("tool %s validation detail: %s", self.name, e)
             return json.dumps({"error": f"Invalid arguments: {e.errors()}"})
 
         try:

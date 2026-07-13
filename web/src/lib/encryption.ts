@@ -43,7 +43,10 @@ export function decryptString(encryptedBase64: string): string {
   const authTag = data.subarray(IV_LENGTH, IV_LENGTH + AUTH_TAG_LENGTH);
   const ciphertext = data.subarray(IV_LENGTH + AUTH_TAG_LENGTH);
 
-  const decipher = crypto.createDecipheriv(ALGORITHM, getKey(), iv);
+  // authTagLength is explicit — Node deprecated inferring it (DEP0182).
+  const decipher = crypto.createDecipheriv(ALGORITHM, getKey(), iv, {
+    authTagLength: AUTH_TAG_LENGTH,
+  });
   decipher.setAuthTag(authTag);
 
   return Buffer.concat([

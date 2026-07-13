@@ -20,3 +20,6 @@ __pycache__/
 Thumbs.db
 
 CLAUDE.md
+# OPL CSV import staging
+infra/opl/import/*
+!infra/opl/import/.gitkeep

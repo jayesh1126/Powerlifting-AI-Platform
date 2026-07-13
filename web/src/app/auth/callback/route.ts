@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { publicOrigin } from "@/lib/http";
 import { logger } from "@/lib/logger";
 
 /**
@@ -7,7 +8,10 @@ import { logger } from "@/lib/logger";
  * into the app.
  */
 export async function GET(request: Request) {
-  const { searchParams, origin } = new URL(request.url);
+  const { searchParams } = new URL(request.url);
+  // NOT request.url's origin — that is the container bind address behind
+  // the proxy (see publicOrigin).
+  const origin = publicOrigin(request);
   const code = searchParams.get("code");
   const next = searchParams.get("next") ?? "/chat";
 

@@ -102,7 +102,13 @@ async def plan_request(ctx: RuntimeContext) -> ExecutionPlan:
         )
         plan = ExecutionPlan.model_validate_json(response.choices[0].message.content or "{}")
         plan.planner = "llm"
-        logger.info("plan: %s", plan.model_dump())
+        # Reasoning paraphrases the user's query — DEBUG only; the metrics
+        # event carries the full plan for observability.
+        logger.debug("plan: %s", plan.model_dump())
+        logger.info(
+            "plan: retrieve=%s lifter_data=%s program_design=%s",
+            plan.retrieve, plan.lifter_data, plan.program_design,
+        )
         return plan
     except Exception:
         logger.exception("LLM planner failed — falling back to heuristic")

@@ -131,7 +131,8 @@ class GetLifterHistoryTool(Tool):
           LIMIT 50;
         """
         rows = await pool.fetch(q, f"%{args.name}%")
-        logger.info("get_lifter_history name=%r rows=%d", args.name, len(rows))
+        logger.debug("get_lifter_history name=%r", args.name)  # user content — DEBUG only
+        logger.info("get_lifter_history rows=%d", len(rows))
         return _rows_to_json(rows, get_settings().max_tool_result_chars)
 
 

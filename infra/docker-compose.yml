@@ -20,11 +20,16 @@ services:
   caddy:
     image: caddy:2.10
     restart: unless-stopped
+    # Mount the directory, not a single file: single-file binds pin the
+    # inode at container creation, so git reset's replace-by-rename left
+    # the container reading a stale Caddyfile. Directory mounts resolve
+    # paths on every access.
+    command: caddy run --config /etc/caddy/Caddyfile.${CADDY_ENV:-local} --adapter caddyfile
     ports:
       - "${HTTP_PORT:-80}:80"
       - "${HTTPS_PORT:-443}:443"
     volumes:
-      - ./caddy/Caddyfile.${CADDY_ENV:-local}:/etc/caddy/Caddyfile:ro
+      - ./caddy:/etc/caddy:ro
       - caddy_data:/data
       - caddy_config:/config
     depends_on:
@@ -116,7 +121,7 @@ services:
     image: prom/prometheus:v3.5.0
     restart: unless-stopped
     volumes:
-      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus:/etc/prometheus:ro
       - prom_data:/prometheus
     networks:
       - app_net

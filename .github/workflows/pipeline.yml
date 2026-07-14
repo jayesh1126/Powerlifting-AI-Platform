@@ -94,6 +94,10 @@ jobs:
               || echo "IMAGE_TAG=${{ github.sha }}" >> .env
             docker compose pull web orchestrator
             docker compose up -d
+            # Caddy reads its config at startup; reload picks up Caddyfile
+            # changes from the git reset with zero downtime. No-ops when
+            # config is unchanged.
+            docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile.prod --adapter caddyfile
             sleep 10
             curl -fsS https://powerlifting-ai.com/ > /dev/null
             docker compose exec -T orchestrator python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=5)"

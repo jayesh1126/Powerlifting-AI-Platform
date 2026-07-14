@@ -33,6 +33,7 @@ services:
       - app_net
 
   web:
+    image: ghcr.io/jayesh1126/powerlifting-ai-web:${IMAGE_TAG:-latest}
     build:
       context: ../web
       args:
@@ -51,6 +52,7 @@ services:
       - app_net
 
   orchestrator:
+    image: ghcr.io/jayesh1126/powerlifting-ai-orchestrator:${IMAGE_TAG:-latest}
     build: ../orchestrator
     restart: unless-stopped
     env_file:

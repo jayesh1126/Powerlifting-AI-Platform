@@ -1,5 +1,7 @@
 # PowerliftingAI
 
+We've recently ported Powerlifting AI to this new stack - it is unsual to show source code but here we are.
+
 An AI coaching and analytics platform for powerlifters:
 
 - **Technique & training Q&A** grounded in a curated powerlifting knowledge

@@ -1,0 +1,28 @@
+name: Rollback
+
+on:
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: "FULL 40-character Git SHA of a previously deployed build"
+        required: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    concurrency: production
+    steps:
+      - uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            set -e
+            cd ~/Powerlifting-AI-Platform/infra
+            sed -i "s/^IMAGE_TAG=.*/IMAGE_TAG=${{ inputs.sha }}/" .env
+            docker compose pull web orchestrator
+            docker compose up -d
+            sleep 10
+            curl -fsS https://powerlifting-ai.com/ > /dev/null
+            echo "rolled back to ${{ inputs.sha }}"

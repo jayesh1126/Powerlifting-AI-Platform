@@ -6,6 +6,7 @@ first, then `citations` / `summary` / `metrics` / `end`).
 import logging
 from collections.abc import AsyncIterator
 
+from app.instrumentation import record_request
 from app.metrics import RequestMetrics
 from app.models import ChatStreamRequest, EndEvent, ErrorEvent, ndjson
 from app.runtime.graph import RUNTIME_GRAPH
@@ -15,6 +16,8 @@ logger = logging.getLogger(__name__)
 
 async def run_chat(request: ChatStreamRequest) -> AsyncIterator[str]:
     metrics = RequestMetrics(user_id=request.user_id, chat_id=request.chat_id)
+    outcome = "ok"
+
     try:
         async for event in RUNTIME_GRAPH.astream(
             {"request": request, "metrics": metrics},
@@ -23,7 +26,9 @@ async def run_chat(request: ChatStreamRequest) -> AsyncIterator[str]:
             yield ndjson(event)
         yield ndjson(EndEvent())
     except Exception:
+        outcome = "error"
         logger.exception("runtime failed chat=%s", request.chat_id)
         yield ndjson(ErrorEvent(message="The AI runtime failed to produce a response."))
     finally:
         metrics.log()
+        record_request(metrics, outcome)

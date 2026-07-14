@@ -1,3 +1,9 @@
+{
+	servers {
+		metrics
+	}
+}
+
 # Production: Caddy terminates TLS (automatic Let's Encrypt) and fronts
 # ONLY the Next.js gateway. The orchestrator is never exposed — it is
 # reachable solely inside the docker network via its internal API key.
@@ -10,3 +16,14 @@ powerlifting-ai.com {
 	encode gzip
 	reverse_proxy web:3000
 }
+
+grafana.powerlifting-ai.com {
+	reverse_proxy grafana:3000
+}
+
+# Internal-only metrics listener — port 2020 is never published by
+# compose, so only Prometheus (on app_net) can reach this.
+:2020 {
+	metrics
+}
+

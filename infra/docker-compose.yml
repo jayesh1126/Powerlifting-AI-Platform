@@ -94,8 +94,62 @@ services:
       start_period: 30m
     networks:
       - app_net
+  
+    # --- Observability (internal-only) ---
+  
+  grafana:
+    image: grafana/grafana:11.4.0 
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?set in infra/.env}
+      GF_SERVER_ROOT_URL: ${GRAFANA_ROOT_URL:-http://localhost:3001}
+      # No public signups — this is a single-admin instance.
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    networks:
+      - app_net
+
+  prometheus:
+    image: prom/prometheus:v3.5.0
+    restart: unless-stopped
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prom_data:/prometheus
+    networks:
+      - app_net
+
+  node-exporter:
+    image: prom/node-exporter:v1.9.1
+    restart: unless-stopped
+    pid: host
+    volumes:
+      # Read-only view of the host so it reports the VPS, not its own
+      # container. rslave propagates host mounts into the bind.
+      - /:/host:ro,rslave
+    command:
+      - --path.rootfs=/host
+    networks:
+      - app_net
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.52.1
+    restart: unless-stopped
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker:/var/lib/docker:ro
+    devices:
+      - /dev/kmsg
+    networks:
+      - app_net
 
 volumes:
+  grafana_data:
+  prom_data:
   caddy_data:
   caddy_config:
   opl_data:

@@ -11,3 +11,21 @@ services:
   opl-db:
     ports:
       - "127.0.0.1:5433:5432"
+
+  # Docker Desktop's VM root is a private mount, so rslave propagation
+  # (correct on the Linux VPS) is rejected locally. !override replaces
+  # the base volumes list rather than concatenating with it.
+  node-exporter:
+    volumes: !override
+      - /:/host:ro
+
+  # Publish Prometheus on loopback so you can open the UI + Targets page
+  # at http://localhost:9090 while developing. Same loopback pattern as
+  # opl-db above; never published in prod (base file has no ports).
+  prometheus:
+    ports:
+      - "127.0.0.1:9090:9090"
+  
+  grafana:
+    ports:
+      - "127.0.0.1:3001:3000"

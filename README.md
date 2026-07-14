@@ -61,6 +61,12 @@ npm run dev                    # http://localhost:3000
 Without LLM keys the runtime streams a stub answer, so the full flow is
 testable with nothing but `INTERNAL_API_KEY` set.
 
+# Quickstart local dev docker compose with observability
+```
+cd infra
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
+```
+
 ## Production
 
 ```bash

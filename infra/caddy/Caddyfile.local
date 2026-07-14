@@ -1,3 +1,9 @@
+{
+	servers {
+		metrics
+	}
+}
+
 # Local production-mimic: same TLS-termination flow as prod, but Caddy's
 # internal CA issues the localhost certificate instead of Let's Encrypt
 # (browsers warn unless you trust Caddy's root CA — fine for testing).
@@ -10,3 +16,10 @@ localhost {
 	encode gzip
 	reverse_proxy web:3000
 }
+
+# Internal-only metrics listener — port 2020 is never published by
+# compose, so only Prometheus (on app_net) can reach this.
+:2020 {
+	metrics
+}
+

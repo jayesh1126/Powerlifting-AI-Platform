@@ -1,6 +1,7 @@
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from prometheus_client import make_asgi_app
 
 from app.config import get_settings
 from app.logging_setup import RequestIdMiddleware, configure_logging
@@ -32,6 +33,8 @@ app = FastAPI(
 
 app.add_middleware(RequestIdMiddleware)
 app.include_router(chat_router)
+app.mount("/metrics", make_asgi_app())
+
 
 
 @app.get("/health")

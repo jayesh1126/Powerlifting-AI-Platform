@@ -1,12 +1,11 @@
 {
-	servers {
-		metrics
-	}
+	metrics
 }
 
-# Production: Caddy terminates TLS (automatic Let's Encrypt) and fronts
-# ONLY the Next.js gateway. The orchestrator is never exposed — it is
-# reachable solely inside the docker network via its internal API key.
+# Production: Caddy terminates TLS (automatic Let's Encrypt) and fronts the
+# Next.js gateway plus the Grafana subdomain. The orchestrator, Prometheus
+# and the exporters are never exposed — they are reachable solely inside the
+# docker network (the orchestrator additionally requires its internal API key).
 
 www.powerlifting-ai.com {
 	redir https://powerlifting-ai.com{uri}
@@ -26,4 +25,3 @@ grafana.powerlifting-ai.com {
 :2020 {
 	metrics
 }
-

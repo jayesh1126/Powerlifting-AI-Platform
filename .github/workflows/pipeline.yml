@@ -99,7 +99,13 @@ jobs:
             # config is unchanged.
             docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile.prod --adapter caddyfile
             sleep 10
-            curl -fsS https://powerlifting-ai.com/ > /dev/null
+            # --resolve pins the hostname to the loopback so this checks OUR
+            # origin (Caddy TLS + vhost routing + web) and not Cloudflare's
+            # edge. Curling the public URL from the VPS hairpins out through
+            # Cloudflare and back, putting infra we don't own in the deploy's
+            # critical path — a transient edge reset failed a good deploy.
+            # Public reachability is the uptime monitor's job, not this one's.
+            curl -fsS --resolve powerlifting-ai.com:443:127.0.0.1 https://powerlifting-ai.com/ > /dev/null
             docker compose exec -T orchestrator python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=5)"
             echo "deployed ${{ github.sha }}"
 

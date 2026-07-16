@@ -154,14 +154,14 @@ async def _embed(text: str) -> list[float] | None:
 async def _hybrid_search(
     embedding: list[float], query_text: str, topics: list[str], top_k: int
 ) -> list[RetrievedDoc]:
-    """Call the Supabase hybrid_match_markdown_chunks_v2 RPC directly over
+    """Call the Supabase match_knowledge_v3 RPC directly over
     PostgREST — same RPC the old app called through supabase-js."""
     settings = get_settings()
     if not settings.supabase_url or not settings.supabase_secret_key:
         logger.warning("Supabase not configured — retrieval returns nothing")
         return []
 
-    url = f"{settings.supabase_url.rstrip('/')}/rest/v1/rpc/hybrid_match_markdown_chunks_v2"
+    url = f"{settings.supabase_url.rstrip('/')}/rest/v1/rpc/match_knowledge_v3"
     payload = {
         "query_embedding": json.dumps(embedding),
         "query_text": query_text,
@@ -184,7 +184,21 @@ async def _hybrid_search(
     if not isinstance(data, list):
         logger.warning("hybrid search RPC returned non-list")
         return []
-    return [RetrievedDoc.model_validate(row) for row in data]
+    return [
+    RetrievedDoc(
+        id=row["id"],
+        content=row["content"],
+        hybrid_score=row.get("score"),
+        metadata={
+            "title": row.get("title"),
+            "author": row.get("author"),
+            "source_url": row.get("source_url"),
+            "topics": row.get("topics") or [],
+        },
+    )
+    for row in data
+]
+
 
 
 async def retrieve_knowledge(

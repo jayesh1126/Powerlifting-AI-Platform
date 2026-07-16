@@ -23,3 +23,7 @@ CLAUDE.md
 # OPL CSV import staging
 infra/opl/import/*
 !infra/opl/import/.gitkeep
+
+# Knowledge base — corpus is laptop-only
+knowledge/docs/
+

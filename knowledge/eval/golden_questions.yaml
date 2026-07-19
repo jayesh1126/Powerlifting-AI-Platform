@@ -1,0 +1,88 @@
+# question -> facts a correct retrieval+answer must surface, and expected topics.
+# Chunk-ID labels get added AFTER the corpus is stable (they die on re-chunk).
+
+# --- Squat ---
+- q: How deep do I need to squat in a powerlifting meet?
+  expected_facts: ["hip crease must drop below the top of the knee"]
+  topics: [squat, competition, ipf_rules]
+- q: How should I brace for a heavy squat?
+  expected_facts: ["take a big breath into the belly", "create intra-abdominal pressure against the belt/core"]
+  topics: [squat, bracing, technique]
+- q: My knees cave in when I squat. How do I fix it?
+  expected_facts: ["cue knees out / track over toes", "may relate to weak glutes or stance/foot pressure"]
+  topics: [squat, technique, positioning]
+
+# --- Bench ---
+- q: What are the commands for the bench press in an IPF meet?
+  expected_facts: ["start command before lowering", "press command after a visible pause on the chest", "rack command"]
+  topics: [bench, competition, ipf_rules]
+- q: Where should the bar touch on my chest when I bench?
+  expected_facts: ["touch around the lower chest / sternum line", "press up and back over the shoulders"]
+  topics: [bench, technique]
+- q: How do I set up an arch and leg drive on bench?
+  expected_facts: ["retract and depress the shoulder blades", "keep feet planted for leg drive", "maintain upper-back contact with the bench"]
+  topics: [bench, technique, positioning]
+
+# --- Deadlift ---
+- q: What's the difference between sumo and conventional deadlift?
+  expected_facts: ["sumo uses a wider stance and shorter range of motion", "conventional places more demand on the back, sumo more on hips/quads"]
+  topics: [deadlift, technique, variations]
+- q: What grip should I use for heavy deadlifts?
+  expected_facts: ["hook grip or mixed grip to prevent the bar rolling"]
+  topics: [deadlift, technique, equipment]
+- q: How do I lock out a deadlift to get white lights?
+  expected_facts: ["knees and hips fully extended", "shoulders back", "wait for the down command before lowering"]
+  topics: [deadlift, competition, ipf_rules]
+
+# --- Programming ---
+- q: What does RPE mean in training?
+  expected_facts: ["rating of perceived exertion", "RPE 8 means roughly 2 reps in reserve"]
+  topics: [rpe, programming]
+- q: How should I peak for a powerlifting meet?
+  expected_facts: ["reduce training volume in the final weeks", "maintain or briefly raise intensity", "arrive recovered/fresh"]
+  topics: [peaking, tapering, programming, meet_prep]
+- q: What is a deload and when do I need one?
+  expected_facts: ["a planned reduction in volume and/or intensity", "used to manage accumulated fatigue"]
+  topics: [deload, fatigue_management, programming]
+- q: How much volume do I need to get stronger?
+  expected_facts: ["enough hard sets to drive adaptation, increased over time", "more is not unlimitedly better — recovery bounds it"]
+  topics: [volume, programming, progress]
+- q: How often should I squat each week?
+  expected_facts: ["higher frequency can distribute volume and aid skill", "must fit recovery capacity"]
+  topics: [programming, specificity, recovery]
+- q: What is progressive overload?
+  expected_facts: ["gradually increasing demand over time (load, reps, or sets)"]
+  topics: [progress, programming]
+
+# --- Competition ---
+- q: How do I pick my opening attempts at a meet?
+  expected_facts: ["openers should be conservative, something you can hit even on a bad day (~90% or an easy single)"]
+  topics: [meet_prep, competition]
+- q: How does a 24-hour weigh-in change my weight cut?
+  expected_facts: ["more time to rehydrate/refuel allows a more aggressive cut than a 2-hour weigh-in"]
+  topics: [weight_class, cutting, meet_prep]
+- q: What are common reasons for red lights / failed lifts at a meet?
+  expected_facts: ["missing depth on squat", "no pause or pressing before the command on bench", "lowering the deadlift before the down command", "moving feet or racking early"]
+  topics: [competition, ipf_rules]
+
+# --- Injuries & rehab ---
+- q: My lower back rounds on deadlifts — is that dangerous?
+  expected_facts: ["some spinal flexion under load is not inherently injurious", "load management and gradual exposure matter more than perfect neutrality"]
+  topics: [deadlift, lower_back, injuries, technique]
+- q: I have lower back pain after training. What should I do?
+  expected_facts: ["most non-specific back pain is not serious and improves with gentle continued movement", "reduce load and progress gradually; seek help for red-flag symptoms"]
+  topics: [lower_back, pain_management, rehab, injuries]
+- q: What are injury red flags that mean I should see a professional?
+  expected_facts: ["numbness/tingling or weakness", "loss of bowel/bladder control", "pain that is severe, unremitting, or not movement-related"]
+  topics: [injuries, pain_management, rehab]
+
+# --- Physiology & lifestyle ---
+- q: How important is sleep for strength and recovery?
+  expected_facts: ["insufficient sleep impairs recovery, performance, and adaptation"]
+  topics: [recovery, mental]
+- q: How much protein should I eat to build muscle?
+  expected_facts: ["roughly 1.6–2.2 g/kg of bodyweight per day"]
+  topics: [diet, muscle, recovery]
+- q: How do I cut weight for a weight class without losing strength?
+  expected_facts: ["prefer gradual fat loss over large acute water cuts", "acute water cuts risk performance if weigh-in is close to lifting"]
+  topics: [cutting, weight_class, diet]

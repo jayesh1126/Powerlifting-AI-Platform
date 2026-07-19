@@ -26,4 +26,4 @@ infra/opl/import/*
 
 # Knowledge base — corpus is laptop-only
 knowledge/docs/
-
+knowledge/.cache/

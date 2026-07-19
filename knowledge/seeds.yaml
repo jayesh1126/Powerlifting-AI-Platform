@@ -1,0 +1,28 @@
+# Places the curator discovers candidates from. NOT scraped directly —
+# curate.py enumerates these and appends good individual URLs to sources.yaml.
+channels:
+  # --- your list ---
+  # - https://www.youtube.com/@PRsPerformance
+  # - https://www.youtube.com/@jflexfit
+  # - https://www.youtube.com/@TheSwolefessor
+  # - https://www.youtube.com/@GavinAdin
+  # - https://www.youtube.com/@yando_af
+  # - https://www.youtube.com/@deadlift_lord868
+  # - https://www.youtube.com/@strongambitionspowerlifting
+  # - https://www.youtube.com/@P4PCoaching
+  # - https://www.youtube.com/@strongerbyscience
+  # - https://www.youtube.com/@ReactiveTrainingSystems
+  # # --- added (evidence-based, high specificity) ---
+  # - https://www.youtube.com/@JeffNippard
+  # - https://www.youtube.com/@JuggernautTrainingSystems
+  # - url: https://www.youtube.com/@conorharris
+  #   focus: rehab, anatomy, mobility, pain management and injury prevention for lifters
+  # - url: https://www.youtube.com/@barbellmedicine
+  #   focus: injury, pain, rehab and evidence-based medical guidance for lifter
+
+article_indexes:
+  # - https://www.strongerbyscience.com/articles/
+  # - https://www.jtsstrength.com/articles/
+  # - https://www.barbellmedicine.com/articles/
+  # - https://barbellrehab.com/blog/
+  # - https://powerliftingtechnique.com/articles/

@@ -57,6 +57,45 @@ A verifier runs cheap invariants after generation (empty answer, retrieval
 planned but no docs, tools planned but never called, all tool calls failed)
 and records them — the seam where real evaluation plugs in next.
 
+## Knowledge pipeline (RAG)
+
+The knowledge base behind technique and programming Q&A is built by a pipeline
+designed to be **re-runnable** and **reviewable** — content is curated with a
+human in the loop, not dumped in bulk.
+
+```
+seeds.yaml ─► curate.py ─► sources.yaml ─► (human review) ─► scrape.py ─► docs/*.md ─► ingest.py ─► Postgres (pgvector)
+ channels &    discover &    curated URLs      keep / cull       fetch &       local          chunk → contextualise
+ article idx   score (LLM)   + score & reason                    clean         markdown       → embed → upsert
+```
+
+- **Curate** — `seeds.yaml` lists YouTube channels and article-index pages.
+  `curate.py` enumerates each (yt-dlp for channels, HTML link-extraction for
+  article indexes) and an LLM scores every candidate 0–10 on *relevance* and
+  *specificity*, keeping the strong ones. A per-source *focus* lets rehab and
+  anatomy channels be judged on rehab relevance instead of being filtered out
+  as "not powerlifting."
+- **Review** — the curator *proposes* (appends URLs with each score and a
+  one-line reason as comments); a human *disposes* (prunes `sources.yaml`).
+  Judgment stays with the human, at the cheapest point in the pipeline.
+- **Scrape** — articles via main-content extraction; YouTube via transcript
+  plus an LLM distillation pass that turns a waffly transcript into structured
+  notes so it chunks like an article. Output is local markdown with provenance
+  front-matter.
+- **Ingest** — header-aware, token-bounded chunking; a deterministic contextual
+  preamble so each chunk keeps its parent-doc and section context; embedding;
+  and an idempotent upsert keyed on a content hash — a re-run only re-embeds
+  what actually changed.
+
+Retrieval is hybrid: `halfvec` embeddings under an HNSW index (fast — unlike the
+original 3072-dim vectors, which exceeded pgvector's index limit and forced a
+full scan on every query), fused with full-text keyword search by **Reciprocal
+Rank Fusion**. RRF combines by *rank position*, so vector and keyword scores
+merge correctly instead of the vector scale drowning out keywords.
+
+The pipeline code is public; the corpus itself (third-party content) stays local
+and out of version control.
+
 ## Deployment
 
 Push to `main` → GitHub Actions checks → build + push both images to GHCR

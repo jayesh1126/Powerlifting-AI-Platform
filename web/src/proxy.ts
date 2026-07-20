@@ -3,13 +3,12 @@ import { NextResponse, type NextRequest } from "next/server";
 
 const PROTECTED_PREFIXES = ["/chat", "/settings", "/api/chat", "/api/chats", "/api/account"];
 
-// Reject oversized API request bodies before any parsing happens (parity
-// with the old app's body-size middleware). The chat schema caps messages
+// Reject oversized API request bodies before any parsing happens. The chat schema caps messages
 // at 2000 chars anyway — anything near this limit is not a real request.
 const MAX_API_BODY_BYTES = 50_000;
 
 /**
- * Proxy (Next 16 rename of middleware): refreshes the Supabase session on
+ * Proxy: refreshes the Supabase session on
  * every matched request and redirects unauthenticated users away from
  * protected routes. API routes get a 401 instead of a redirect. Route
  * handlers still re-verify auth themselves — this is the outer gate, not

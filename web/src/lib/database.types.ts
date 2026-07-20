@@ -76,6 +76,7 @@ export type Database = {
           id: string
           role: string
           user_id: string
+          citations: Json | null
         }
         Insert: {
           chat_id: string
@@ -84,6 +85,7 @@ export type Database = {
           id?: string
           role: string
           user_id: string
+          citations?: Json | null
         }
         Update: {
           chat_id?: string
@@ -92,6 +94,7 @@ export type Database = {
           id?: string
           role?: string
           user_id?: string
+          citations?: Json | null
         }
         Relationships: [
           {

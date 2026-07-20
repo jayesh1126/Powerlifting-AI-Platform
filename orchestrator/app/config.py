@@ -23,7 +23,7 @@ class Settings(BaseSettings):
 
     # Model roles — tune quality vs. cost per stage, in one place.
     planner_model: str = "meta-llama/llama-3.1-8b-instruct"
-    generator_model: str = "openai/gpt-4.1-nano"
+    generator_model: str = "openai/gpt-4.1-mini"
     summarizer_model: str = "meta-llama/llama-3.1-8b-instruct"
     embedding_model: str = "text-embedding-3-large"
 

@@ -7,8 +7,7 @@ export const FREE_MONTHLY_LIMIT = 15;
 
 /**
  * Free-tier quota gate: allows up to FREE_MONTHLY_LIMIT requests per
- * calendar month. Billing/subscriptions were intentionally dropped from
- * this port — reintroduce plan checks here when Stripe comes back.
+ * calendar month.
  */
 export async function checkQuota(
   dbClient: SupabaseClient<Database>,

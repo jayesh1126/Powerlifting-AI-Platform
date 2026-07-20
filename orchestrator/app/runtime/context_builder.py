@@ -26,7 +26,6 @@ CONTEXT_POLICY: dict[Subscription, ContextPolicy] = {
 }
 
 # Refresh the rolling summary on the first exchange, then every 5 exchanges
-# (same cadence the gateway used to apply — now owned by the AI runtime).
 SUMMARY_REFRESH_EVERY = 10
 
 

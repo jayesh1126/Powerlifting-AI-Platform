@@ -12,12 +12,15 @@ import {
 } from "@/lib/db";
 import { decryptString } from "@/lib/encryption";
 import {
+  Citation,
   streamChatCompletion,
   type OrchestratorCompletion,
   type Subscription,
 } from "@/lib/orchestrator";
 import { logger } from "@/lib/logger";
 import type { ChatRole } from "@/lib/types";
+import { Json } from "@/lib/database.types";
+import { SOURCES_MARKER } from "@/lib/chat-protocol";
 
 export const runtime = "nodejs";
 
@@ -54,7 +57,7 @@ export async function POST(request: NextRequest) {
     if (!claims) {
       return NextResponse.json(
         { success: false, message: "Unauthorized" },
-        { status: 401 }
+        { status: 401 },
       );
     }
     const userId = claims.sub;
@@ -68,7 +71,7 @@ export async function POST(request: NextRequest) {
           success: false,
           message: parsed.error.issues[0]?.message ?? "Invalid request",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
     const { message, chatId } = parsed.data;
@@ -87,7 +90,7 @@ export async function POST(request: NextRequest) {
       });
       return NextResponse.json(
         { success: false, message: quota.message },
-        { status: quota.status }
+        { status: quota.status },
       );
     }
 
@@ -117,7 +120,7 @@ export async function POST(request: NextRequest) {
         });
         return NextResponse.json(
           { success: false, message: "Chat not found" },
-          { status: 404 }
+          { status: 404 },
         );
       }
       targetChatId = chatId;
@@ -155,7 +158,7 @@ export async function POST(request: NextRequest) {
               undefined,
           },
         },
-        { requestId }
+        { requestId },
       );
     } catch (err) {
       // Don't leave an empty chat in the sidebar when the runtime was
@@ -174,7 +177,34 @@ export async function POST(request: NextRequest) {
       requestId,
     });
 
-    return new Response(textStream, { headers: responseHeaders });
+    // Pipe answer tokens unchanged, then append the sources frame once the
+    // runtime's citations resolve — so the browser shows sources live.
+    const encoder = new TextEncoder();
+    const responseBody = new ReadableStream<Uint8Array>({
+      async start(controller) {
+        const reader = textStream.getReader();
+        try {
+          for (;;) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            controller.enqueue(value);
+          }
+          const { citations } = await completion;
+          const sources = dedupeSources(citations);
+          if (sources.length) {
+            controller.enqueue(
+              encoder.encode(SOURCES_MARKER + JSON.stringify(sources)),
+            );
+          }
+        } catch (err) {
+          controller.error(err);
+          return;
+        }
+        controller.close();
+      },
+    });
+
+    return new Response(responseBody, { headers: responseHeaders });
   } catch (err) {
     logger.error("[api/chat] Request failed", { requestId, err });
     return NextResponse.json(
@@ -183,9 +213,24 @@ export async function POST(request: NextRequest) {
         message:
           "An unexpected error occurred while generating your response. Please try again.",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
+}
+
+/** Collapse retrieved chunks to distinct sources (by URL), display fields only.
+ * Shared by persistence and the live sources frame so both stay identical. */
+function dedupeSources(citations: Citation[]) {
+  return Array.from(
+    new Map(
+      citations
+        .filter((c) => c.sourceUrl)
+        .map((c) => [
+          c.sourceUrl,
+          { title: c.title, author: c.author, sourceUrl: c.sourceUrl },
+        ]),
+    ).values(),
+  );
 }
 
 /**
@@ -210,7 +255,7 @@ async function persistConversation({
   requestId: string;
 }) {
   try {
-    const { fullText, summary } = await completion;
+    const { fullText, summary, citations } = await completion;
 
     if (!fullText.trim()) {
       logger.warn("[api/chat] Empty assistant response — nothing persisted", {
@@ -221,6 +266,11 @@ async function persistConversation({
       return;
     }
 
+    // One answer often retrieves several chunks from the same source — show
+    // each source once. Strip to display fields; chunk ids aren't useful here
+    // and go stale on re-ingest.
+    const sources = dedupeSources(citations);
+
     const { error } = await createMessages(supabase, [
       { chat_id: chatId, content: userMessage, role: "User", user_id: userId },
       {
@@ -228,8 +278,10 @@ async function persistConversation({
         content: fullText,
         role: "Assistant",
         user_id: userId,
+        citations: sources.length ? (sources as unknown as Json) : null,
       },
     ]);
+
     if (error) throw new Error("Failed to insert messages");
 
     if (summary) {

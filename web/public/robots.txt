@@ -8,10 +8,7 @@ Allow: /terms
 # Private or non-indexable routes
 Disallow: /chat
 Disallow: /settings
-Disallow: /pricing
-Disallow: /success
 Disallow: /auth/
 Disallow: /api/
-Disallow: /webhooks/
 
 Sitemap: https://powerlifting-ai.com/sitemap.xml

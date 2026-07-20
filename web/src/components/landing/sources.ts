@@ -13,7 +13,6 @@ export const KNOWLEDGE_SOURCES = [
     href: "https://www.jtsstrength.com",
   },
   { name: "Barbell Medicine", href: "https://www.barbellmedicine.com" },
-  { name: "Jeff Nippard", href: "https://www.youtube.com/@JeffNippard" },
   { name: "PRs Performance", href: "https://www.youtube.com/@PRsPerformance" },
   { name: "The Swolefessor", href: "https://www.youtube.com/@TheSwolefessor" },
   { name: "Gavin Adin", href: "https://www.youtube.com/@GavinAdin" },

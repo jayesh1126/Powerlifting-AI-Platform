@@ -6,7 +6,7 @@ import {
   getMonthlyRequestCount,
 } from "@/lib/db";
 import { FREE_MONTHLY_LIMIT } from "@/lib/quota";
-import { ChatView, type DisplayMessage } from "@/components/chat/chat-view";
+import { ChatView, type DisplayMessage, type Source } from "@/components/chat/chat-view";
 
 export default async function ChatByIdPage({
   params,
@@ -34,7 +34,8 @@ export default async function ChatByIdPage({
       role: m.role as DisplayMessage["role"],
       content: m.content,
       created_at: m.created_at,
-    })
+      citations: (m.citations as unknown as Source[]) ?? null,
+    }),
   );
 
   const avatarUrl = (

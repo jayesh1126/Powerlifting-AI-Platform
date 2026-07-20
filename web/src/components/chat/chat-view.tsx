@@ -4,16 +4,24 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import toast from "react-hot-toast";
-import { ArrowUp, Dumbbell } from "lucide-react";
+import { ArrowUp, Dumbbell, ExternalLink } from "lucide-react";
 import { Markdown } from "@/components/chat/markdown";
 import { cn, formatDateTime } from "@/lib/utils";
 import { EXAMPLE_PROMPTS } from "@/lib/example-prompts";
+import { SOURCES_MARKER } from "@/lib/chat-protocol";
+
+export interface Source {
+  title: string | null;
+  author: string | null;
+  sourceUrl: string | null;
+}
 
 export interface DisplayMessage {
   id: string;
   role: "User" | "Assistant";
   content: string;
   created_at: string;
+  citations?: Source[] | null;
 }
 
 const MAX_INPUT_LENGTH = 2000;
@@ -86,7 +94,8 @@ export function ChatView({
       if (!response.ok || !response.body) {
         const errorData = await response.json().catch(() => null);
         toast.error(
-          errorData?.message || "Error generating AI response. Please try again."
+          errorData?.message ||
+            "Error generating AI response. Please try again.",
         );
         setMessages(prevMessages);
         return;
@@ -104,31 +113,39 @@ export function ChatView({
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
-      let fullMessage = "";
+      let raw = "";
       for (;;) {
         const { done, value } = await reader.read();
         if (done) break;
-        const chunk = decoder.decode(value, { stream: true });
-        fullMessage += chunk;
-        setPendingAiMessage((prev) => prev + chunk);
+        raw += decoder.decode(value, { stream: true });
+        // Preview shows only the answer; the trailing frame stays hidden.
+        setPendingAiMessage(raw.split(SOURCES_MARKER)[0]);
       }
-      fullMessage += decoder.decode();
+      raw += decoder.decode();
 
-      if (fullMessage.trim()) {
+      const [answer, sourcesJson] = raw.split(SOURCES_MARKER);
+      let citations: Source[] | null = null;
+      if (sourcesJson) {
+        try {
+          citations = JSON.parse(sourcesJson) as Source[];
+        } catch {
+          citations = null;
+        }
+      }
+
+      if (answer.trim()) {
         setMessages((prev) => [
           ...prev,
           {
             id: `temp-${crypto.randomUUID()}`,
             role: "Assistant",
-            content: fullMessage,
+            content: answer,
             created_at: new Date().toISOString(),
+            citations,
           },
         ]);
       }
       setPendingAiMessage("");
-
-      // Re-render server components (sidebar chat list, usage counter)
-      // without touching this component's local state.
       router.refresh();
     } catch {
       toast.error("Connection lost while streaming the response.");
@@ -172,6 +189,7 @@ export function ChatView({
               role={msg.role}
               timestamp={msg.created_at}
               userAvatarUrl={userAvatarUrl}
+              citations={msg.role === "Assistant" ? msg.citations : null}
             >
               <Markdown invert={msg.role === "User"}>{msg.content}</Markdown>
             </MessageBubble>
@@ -258,12 +276,14 @@ function MessageBubble({
   timestamp,
   dimmed,
   userAvatarUrl,
+  citations,
   children,
 }: {
   role: "User" | "Assistant";
   timestamp?: string;
   dimmed?: boolean;
   userAvatarUrl?: string;
+  citations?: Source[] | null;
   children: React.ReactNode;
 }) {
   const isUser = role === "User";
@@ -296,22 +316,57 @@ function MessageBubble({
             isUser
               ? "bg-red-600 text-white rounded-tr-sm"
               : "bg-white border border-gray-200 text-gray-900 rounded-tl-sm",
-            dimmed && "opacity-80"
+            dimmed && "opacity-80",
           )}
         >
           {children}
         </div>
+        {citations && citations.length > 0 && <Sources citations={citations} />}
         {timestamp && (
           <p
             className={cn(
               "text-[10px] text-gray-400 px-1",
-              isUser && "text-right"
+              isUser && "text-right",
             )}
           >
             {formatDateTime(timestamp)}
           </p>
         )}
       </div>
+    </div>
+  );
+}
+
+function Sources({ citations }: { citations: Source[] }) {
+  return (
+    <div className="mt-1.5">
+      <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 px-1 mb-1">
+        Sources
+      </p>
+      <ul className="space-y-1">
+        {citations.map((c, i) => (
+          <li key={c.sourceUrl ?? i}>
+            <a
+              href={c.sourceUrl ?? "#"}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="group flex items-start gap-1.5 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs text-gray-600 hover:border-gray-300 hover:text-gray-900 transition-colors"
+            >
+              <ExternalLink className="h-3 w-3 mt-0.5 shrink-0 text-gray-400 group-hover:text-red-600" />
+              <span className="min-w-0">
+                <span className="block truncate font-medium">
+                  {c.title ?? c.sourceUrl}
+                </span>
+                {c.author && (
+                  <span className="block truncate text-gray-400">
+                    {c.author}
+                  </span>
+                )}
+              </span>
+            </a>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

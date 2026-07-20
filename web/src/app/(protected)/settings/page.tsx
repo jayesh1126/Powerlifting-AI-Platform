@@ -22,11 +22,13 @@ export default async function SettingsPage() {
   return (
     <div className="h-full overflow-y-auto bg-gray-50">
       <div className="max-w-2xl mx-auto px-4 py-8 sm:py-10 space-y-5">
-        <h1 className="text-2xl font-bold px-1">Settings</h1>
+        <h1 className="font-display text-3xl font-bold uppercase px-1">
+          Settings
+        </h1>
 
         {/* Profile */}
         <section className="rounded-xl border border-gray-200 bg-white p-5 sm:p-6">
-          <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-4">
+          <h2 className="font-mono text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-4">
             Profile
           </h2>
           <div className="flex items-center gap-4">
@@ -60,7 +62,7 @@ export default async function SettingsPage() {
 
         {/* Usage */}
         <section className="rounded-xl border border-gray-200 bg-white p-5 sm:p-6">
-          <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-4">
+          <h2 className="font-mono text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-4">
             Monthly usage
           </h2>
           <div className="space-y-2">
@@ -96,7 +98,7 @@ export default async function SettingsPage() {
 
         {/* Danger zone */}
         <section className="rounded-xl border border-red-200 bg-white p-5 sm:p-6">
-          <h2 className="text-xs font-semibold text-red-500 uppercase tracking-wide mb-4">
+          <h2 className="font-mono text-[11px] font-semibold text-red-600 uppercase tracking-wide mb-4">
             Danger zone
           </h2>
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">

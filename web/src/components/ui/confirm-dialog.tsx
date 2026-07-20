@@ -59,7 +59,7 @@ export function ConfirmDialog({
           <button
             onClick={onClose}
             disabled={busy}
-            className="px-3.5 py-2 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 cursor-pointer transition-colors"
+            className="px-4 py-2 rounded-full border border-gray-300 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50 cursor-pointer transition-colors"
           >
             Cancel
           </button>
@@ -67,8 +67,8 @@ export function ConfirmDialog({
             onClick={onConfirm}
             disabled={busy}
             className={cn(
-              "px-3.5 py-2 rounded-lg text-sm font-medium text-white cursor-pointer transition-colors",
-              busy ? "bg-red-300 cursor-not-allowed" : "bg-red-600 hover:bg-red-500"
+              "px-4 py-2 rounded-full text-sm font-semibold text-white cursor-pointer transition-colors",
+              busy ? "bg-red-300 cursor-not-allowed" : "bg-red-600 hover:bg-red-700"
             )}
           >
             {busy ? busyLabel : confirmLabel}

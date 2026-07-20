@@ -159,7 +159,7 @@ function SidebarContent({
         ) : (
           <Link
             href="/chat"
-            className="flex-1 flex items-center justify-center gap-1.5 rounded-lg bg-black text-white text-sm font-medium py-2 hover:bg-gray-800 transition-colors"
+            className="flex-1 flex items-center justify-center gap-1.5 rounded-full bg-black text-white text-sm font-semibold py-2 hover:bg-gray-800 transition-colors"
           >
             <Plus className="h-4 w-4" />
             New Chat

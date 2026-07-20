@@ -3,7 +3,9 @@ export const metadata = { title: "Terms of Use – PowerliftingAI Ltd" };
 export default function TermsPage() {
   return (
     <div className="max-w-3xl mx-auto px-6 py-12 text-gray-800">
-      <h1 className="text-3xl font-bold mb-6">Terms of Use</h1>
+      <h1 className="font-display text-4xl font-bold uppercase sm:text-5xl mb-6">
+        Terms of Use
+      </h1>
       <p className="mb-4 text-sm text-gray-500">
         Last updated: 08 December 2025
       </p>

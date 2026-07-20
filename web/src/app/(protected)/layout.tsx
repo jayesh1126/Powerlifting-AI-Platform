@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getAuth } from "@/lib/supabase/server";
+import { displayFont } from "@/lib/fonts";
 import { SidebarProvider } from "@/components/chat/sidebar-context";
 import { AppHeader } from "@/components/app-header";
 
@@ -22,7 +23,9 @@ export default async function ProtectedLayout({
 
   return (
     <SidebarProvider>
-      <div className="h-screen flex flex-col bg-white text-gray-900">
+      <div
+        className={`${displayFont.variable} h-screen flex flex-col bg-white text-gray-900`}
+      >
         <AppHeader avatarUrl={avatarUrl} />
         <div className="flex-1 min-h-0 overflow-hidden">{children}</div>
       </div>

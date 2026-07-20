@@ -20,6 +20,14 @@ __pycache__/
 Thumbs.db
 
 CLAUDE.md
+
+# AI-agent tooling — local only, not part of the product
+.agents/
+.claude/
+PRODUCT.md
+skills-lock.json
+.impeccable/
+
 # OPL CSV import staging
 infra/opl/import/*
 !infra/opl/import/.gitkeep

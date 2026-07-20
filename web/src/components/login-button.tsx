@@ -2,8 +2,26 @@
 
 import toast from "react-hot-toast";
 import { createClient } from "@/lib/supabase/client";
+import { cn } from "@/lib/utils";
+import {
+  pillBase,
+  pillVariants,
+  pillSizes,
+  type PillVariant,
+  type PillSize,
+} from "@/components/ui/button-styles";
 
-export function LoginButton() {
+export function LoginButton({
+  variant = "dark",
+  size = "md",
+  label = "Sign in with Google",
+  className,
+}: {
+  variant?: PillVariant;
+  size?: PillSize;
+  label?: string;
+  className?: string;
+}) {
   const handleGoogleLogin = async () => {
     try {
       const supabase = createClient();
@@ -26,9 +44,14 @@ export function LoginButton() {
   return (
     <button
       onClick={handleGoogleLogin}
-      className="cursor-pointer flex items-center justify-center gap-3 w-full max-w-sm mx-auto px-5 py-3 rounded-full bg-black text-white font-semibold hover:bg-gray-900 transition-all duration-300 shadow-md"
+      className={cn(pillBase, pillVariants[variant], pillSizes[size], className)}
     >
-      <svg className="w-5 h-5" viewBox="0 0 533.5 544.3" xmlns="http://www.w3.org/2000/svg">
+      <svg
+        aria-hidden="true"
+        className={size === "sm" ? "w-4 h-4" : "w-5 h-5"}
+        viewBox="0 0 533.5 544.3"
+        xmlns="http://www.w3.org/2000/svg"
+      >
         <path
           d="M533.5 278.4c0-17.7-1.4-35-4.1-51.6H272v97.7h146.9c-6.3 34.2-25.1 63.2-53.6 82.6v68h86.9c50.8-46.8 81.3-115.7 81.3-196.7z"
           fill="#4285f4"
@@ -46,7 +69,7 @@ export function LoginButton() {
           fill="#ea4335"
         />
       </svg>
-      <span>Sign in with Google</span>
+      <span>{label}</span>
     </button>
   );
 }

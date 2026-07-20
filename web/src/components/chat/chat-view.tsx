@@ -4,9 +4,10 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import toast from "react-hot-toast";
-import { ArrowUp } from "lucide-react";
+import { ArrowUp, Dumbbell } from "lucide-react";
 import { Markdown } from "@/components/chat/markdown";
 import { cn, formatDateTime } from "@/lib/utils";
+import { EXAMPLE_PROMPTS } from "@/lib/example-prompts";
 
 export interface DisplayMessage {
   id: string;
@@ -144,17 +145,24 @@ export function ChatView({
         <div className="mx-auto w-full max-w-3xl px-3 sm:px-4 py-4 sm:py-6 space-y-5">
           {messages.length === 0 && !isSending && (
             <div className="flex flex-col items-center justify-center text-center gap-3 pt-24 sm:pt-32">
-              <Image
-                src="/logo.png"
-                alt="PowerliftingAI"
-                width={56}
-                height={56}
-                className="h-14 w-auto opacity-90"
-              />
+              <h2 className="font-display text-3xl sm:text-4xl font-bold uppercase">
+                Ask <span className="text-red-600">anything</span>
+              </h2>
               <p className="text-gray-500 text-sm max-w-xs">
-                Ask anything about powerlifting — technique, programming, or
-                meet data.
+                Technique, programming, meet prep, or real competition data.
               </p>
+              <div className="flex flex-wrap justify-center gap-2 pt-2 px-4">
+                {EXAMPLE_PROMPTS.map((prompt) => (
+                  <button
+                    key={prompt}
+                    type="button"
+                    onClick={() => setInput(prompt)}
+                    className="rounded-full border border-gray-300 bg-white px-3.5 py-1.5 text-sm text-gray-700 hover:border-gray-400 hover:text-gray-900 transition-colors cursor-pointer"
+                  >
+                    {prompt}
+                  </button>
+                ))}
+              </div>
             </div>
           )}
 
@@ -226,7 +234,7 @@ export function ChatView({
                 <button
                   type="submit"
                   disabled={!input.trim() || isSending}
-                  className="h-8 w-8 flex items-center justify-center rounded-lg bg-black text-white disabled:opacity-30 cursor-pointer hover:bg-gray-800 transition-colors"
+                  className="h-8 w-8 flex items-center justify-center rounded-full bg-red-600 text-white disabled:bg-gray-200 disabled:text-gray-400 cursor-pointer disabled:cursor-default hover:bg-red-700 disabled:hover:bg-gray-200 transition-colors"
                   aria-label="Send message"
                 >
                   <ArrowUp className="h-4 w-4" />
@@ -259,26 +267,34 @@ function MessageBubble({
   children: React.ReactNode;
 }) {
   const isUser = role === "User";
-  const avatarSrc = isUser ? userAvatarUrl : "/logo.png";
 
   return (
     <div className={cn("flex items-start gap-2", isUser && "flex-row-reverse")}>
-      {avatarSrc && (
-        <Image
-          src={avatarSrc}
-          alt={isUser ? "You" : "PowerliftingAI"}
-          width={28}
-          height={28}
-          className="h-7 w-7 rounded-full border border-gray-200 bg-white object-contain shrink-0 mt-0.5"
-          unoptimized={isUser} // external Google avatar URL
-        />
+      {isUser ? (
+        userAvatarUrl && (
+          <Image
+            src={userAvatarUrl}
+            alt="You"
+            width={28}
+            height={28}
+            className="h-7 w-7 rounded-full border border-gray-200 bg-white object-contain shrink-0 mt-0.5"
+            unoptimized // external Google avatar URL
+          />
+        )
+      ) : (
+        <span
+          aria-hidden="true"
+          className="h-7 w-7 rounded-full bg-neutral-950 flex items-center justify-center shrink-0 mt-0.5"
+        >
+          <Dumbbell className="h-3.5 w-3.5 text-red-500" />
+        </span>
       )}
       <div className="max-w-[85%] sm:max-w-[75%] space-y-0.5">
         <div
           className={cn(
             "rounded-2xl px-3.5 py-2 shadow-sm",
             isUser
-              ? "bg-black text-white rounded-tr-sm"
+              ? "bg-red-600 text-white rounded-tr-sm"
               : "bg-white border border-gray-200 text-gray-900 rounded-tl-sm",
             dimmed && "opacity-80"
           )}

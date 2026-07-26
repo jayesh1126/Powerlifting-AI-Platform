@@ -19,9 +19,9 @@ SQL) to fetch what it needs.
 
 ```
 ┌──────────────┐        ┌───────┐        ┌──────────────────┐  internal key  ┌────────────────────┐
-│   Browser    │ ─────► │ Caddy │ ─────► │  web/ (Next.js)  │ ─────────────► │ orchestrator/      │
-│   chat UI    │ ◄───── │  TLS  │ ◄───── │  auth gateway    │ ◄───────────── │ (FastAPI)          │
-└──────────────┘        └───────┘  text  │  + persistence   │ NDJSON events  │ AI runtime         │
+│   Browser    │ ─────► │ Caddy │ ─────► │  web/ (Next.js)  │ ─────────────► │ java-orchestrator/ │
+│   chat UI    │ ◄───── │  TLS  │ ◄───── │  auth gateway    │ ◄───────────── │ (Spring Boot +     │
+└──────────────┘        └───────┘  text  │  + persistence   │ NDJSON events  │  Spring AI 2.0)    │
                                          └──────────────────┘                └────────────────────┘
                                                  │                                     │
                                                  ▼                                     ▼
@@ -32,26 +32,30 @@ SQL) to fetch what it needs.
 - **`web/`** — Next.js 16 gateway: Google sign-in (Supabase), authorization,
   quota, AES-256-GCM encrypted chat persistence, streaming. Does no AI work —
   no prompts, no retrieval, no model calls.
-- **`orchestrator/`** — the AI runtime (LangGraph). Every request runs one
-  flow: context policy → planner → retrieval → agentic generation with tools
-  → verification → summary → per-request metrics. Streams NDJSON back to the
-  gateway.
+- **`java-orchestrator/`** — the AI runtime (Java 25 + Spring Boot 4 + Spring
+  AI 2.0, on virtual threads). Every request runs one flow: context policy →
+  planner → retrieval → agentic generation with tools → verification → summary
+  → per-request metrics. Streams NDJSON back to the gateway. (This replaced an
+  earlier Python/FastAPI backend — kept in `orchestrator/` as history.)
 - **`infra/`** — docker compose, Caddy, the OpenPowerlifting database, and the
   observability stack. Only Caddy publishes ports; everything else exists
   solely on the internal network.
 
 **Stack**: Next.js 16 · React 19 · Tailwind 4 · Supabase (Postgres, Auth,
-pgvector) · FastAPI · LangGraph · OpenRouter/OpenAI · asyncpg · Caddy · Docker
-· GitHub Actions · GHCR · Prometheus · Grafana.
+pgvector) · Java 25 · Spring Boot 4 · Spring AI 2.0 · virtual threads ·
+OpenRouter/OpenAI · Caddy · Docker · GitHub Actions · GHCR · Prometheus ·
+Grafana.
 
 ### The AI runtime
 
 The planner is a cheap LLM that grants *capabilities* per query (`retrieve`,
 `lifter_data`, `program_design`) — it never answers and never picks tool
-arguments; the generator's native tool-calling loop does that. Tools implement
-a single ABC and expose typed pydantic params as OpenAI function schemas, so
-the model fills **parameters, never SQL**. "Compare my squat progression to
-Russel Orhii" earns multiple capabilities in one pass.
+arguments; the generator's streaming tool-calling loop does that. Tools are
+Spring AI `@Tool` methods whose typed parameters become the function schema the
+model sees, so the model fills **parameters, never SQL**. Both the planner's
+decision and the query-rewriter's output use Spring AI structured output, so the
+JSON schema is derived from a Java record and can't drift. "Compare my squat
+progression to Russel Orhii" earns multiple capabilities in one pass.
 
 A verifier runs cheap invariants after generation (empty answer, retrieval
 planned but no docs, tools planned but never called, all tool calls failed)
@@ -135,7 +139,13 @@ A few decisions and the reasoning behind them:
 - **The gateway does no AI work.** Prompts, retrieval and model calls live
   only in the orchestrator, which is unreachable from the internet and gated
   by a shared internal key. The wire contract is pinned on both sides
-  (`app/models.py` ↔ `web/src/lib/orchestrator.ts`).
+  (`java-orchestrator` model records ↔ `web/src/lib/orchestrator.ts`).
+- **The backend was ported from Python to Java.** The runtime began as
+  FastAPI + LangGraph and was re-implemented on Spring Boot + Spring AI 2.0 —
+  built the Spring way (advisor chain, structured output, native tool-calling)
+  rather than transliterated, and cut over in production with metrics and
+  streaming intact. Virtual threads keep the code straight-line imperative while
+  a single `Flux.toStream()` bridge consumes Spring AI's reactive stream.
 - **Chat content is encrypted at rest** (AES-256-GCM), including titles, and
   logs are content-free at INFO and above — user messages, rewritten queries,
   tool arguments and generated text are DEBUG only. Every request carries an
@@ -165,12 +175,11 @@ gate.
 ## Local development
 
 ```bash
-# 1. AI runtime
-cd orchestrator
-python -m venv .venv && .venv\Scripts\activate
-pip install -r requirements.txt
-copy .env.example .env         # keys: see comments inside
-uvicorn app.main:app --reload --port 8000
+# 1. AI runtime  (details in java-orchestrator/README.md)
+cd java-orchestrator
+cp src/main/resources/application-dev.properties.example application-dev.properties
+# fill in the keys, then:
+./gradlew bootRun              # http://localhost:8080
 
 # 2. Web gateway
 cd web
@@ -178,9 +187,6 @@ npm install
 copy .env.example .env.local
 npm run dev                    # http://localhost:3000
 ```
-
-Without LLM keys the runtime streams a stub answer, so the full flow is
-testable with nothing but `INTERNAL_API_KEY` set.
 
 Full stack in Docker, including the observability services (the dev overlay
 publishes Prometheus/Grafana/the OPL database on loopback):

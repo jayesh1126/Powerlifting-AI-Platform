@@ -8,9 +8,9 @@ planning, knowledge retrieval, competition-data tools, answer generation, and
 conversation summaries — and trusts any caller holding the shared secret. It is
 never exposed to browsers directly.
 
-It is a functional re-implementation of the Python `../orchestrator`, built the
-Spring way rather than as a line-by-line port. Design decisions and the trickier
-findings live in [`PORT_PLAN.md`](PORT_PLAN.md).
+It replaces an earlier Python/FastAPI backend, re-implemented the Spring way
+rather than transliterated — the framework's abstractions (advisor chain,
+structured output, tool-calling) do the work a hand-rolled runtime did before.
 
 ---
 
@@ -145,8 +145,8 @@ HTTP response.
   platform one. No reactive colouring anywhere else.
 - **The tool loop is driven by `Generator`**, not Spring AI's tool advisor,
   because the round policy (force a tool on round 0, withhold on the last round)
-  isn't expressible through the advisor, and advisor hooks run on the wrong
-  scheduler. See `PORT_PLAN.md` §2.2 / §2.4.
+  isn't expressible through the advisor, and advisor hooks run on a
+  bounded-elastic scheduler rather than the request's virtual thread.
 - **NDJSON via `EventSink`/`NdjsonSink`**: one JSON object per line, flushed as
   written, so the caller sees tokens in real time.
 - **Structured output**: the planner and query-rewriter use Spring AI's
@@ -211,13 +211,16 @@ each stage the service calls.
 
 ---
 
-## Status vs. the Python service
+## Status
 
-At parity and verified live: the full chat pipeline — context policy, planner
-(with heuristic fallback), retrieval, citations, the agentic tool loop against
-real OpenPowerlifting data, verification, rolling summary, per-request metrics,
-NDJSON streaming, API-key auth, request-id correlation.
+Live in production — the sole AI backend since the Python service was retired.
+Complete and verified end to end: the full chat pipeline (context policy,
+planner with heuristic fallback, retrieval, citations, the agentic tool loop
+against real OpenPowerlifting data, verification, rolling summary), per-request
+metrics exported to Prometheus, structured JSON logging in prod, NDJSON
+streaming, API-key auth, request-id correlation, containerised and continuously
+deployed.
 
-Not yet built: the **programs** feature (`/v1/programs/*`), custom **Prometheus
-meters** (so Grafana dashboards render), JSON log format, and **deployment**
-(Dockerfile, compose service, CI). See `PORT_PLAN.md` for the phase plan.
+Not yet ported: the **programs** feature (`/v1/programs/*` — normalize a pasted
+program and stream AI suggestions). It is independent of the chat pipeline and
+still served by the earlier stack; it's the one remaining piece.

@@ -173,7 +173,7 @@ public class Generator {
         try (Stream<ChatResponse> responses = chatClient.prompt(prompt)
                 // Stop Spring AI's own tool advisor from also executing calls;
                 // this loop owns the round policy and the metrics.
-                .advisors(AdvisorParams.toolCallAdvisorAutoRegister(false))
+                .advisors(AdvisorParams.toolCallingAdvisorAutoRegister(false))
                 .stream()
                 .chatResponse()
                 .toStream()) {

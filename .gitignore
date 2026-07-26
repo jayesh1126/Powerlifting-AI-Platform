@@ -35,3 +35,75 @@ infra/opl/import/*
 # Knowledge base — corpus is laptop-only
 knowledge/docs/
 knowledge/.cache/
+# =========================================================================
+# Gradle Build and Cache Outputs
+# =========================================================================
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+!gradle/wrapper/gradle-wrapper.properties
+
+# Log files
+*.log
+logs/
+
+# =========================================================================
+# IDEs and Editors
+# =========================================================================
+# IntelliJ IDEA
+.idea/
+*.iws
+*.iml
+*.ipr
+out/
+
+# Eclipse
+.metadata/
+.classpath
+.project
+.settings/
+*.launch
+
+# VS Code
+.vscode/
+
+# NetBeans
+nbproject/private/
+nbbuild/
+dist/
+nbdist/
+.nb-gradle/
+
+# =========================================================================
+# Spring Boot & Application Secrets (CRITICAL)
+# =========================================================================
+# Never commit your environment variables or local properties
+.env
+.env.local
+application-local.properties
+application-local.yml
+
+# Human-readable crash dumps
+crash-*.log
+
+# =========================================================================
+# Docker & Containers (If using local overrides)
+# =========================================================================
+.docker/
+docker-compose.override.yml
+
+# =========================================================================
+# Operating System files
+# =========================================================================
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+Ehthumbs.db
+Desktop.ini
+
+# Supabase temp
+**/supabase/.temp/

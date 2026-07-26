@@ -1,0 +1,27 @@
+# Everything here is excluded from the Docker build context (what gets sent to
+# the daemon before the build runs). Two goals: keep the context small/fast, and
+# make it impossible to copy something we didn't mean to.
+
+# Build output and caches — rebuilt inside the image, and large enough to slow
+# the context upload and bust layer caching on every change.
+build/
+.gradle/
+
+# Local dev secrets — must never enter the image. The Dockerfile already copies
+# only specific paths (not `.`), so this is defense in depth.
+application-dev.properties
+.env
+
+# IDE / VCS / docs — irrelevant to the build.
+.idea/
+.vscode/
+*.iml
+.git/
+.gitignore
+HELP.md
+README.md
+PORT_PLAN.md
+
+# The build recipe itself doesn't need to be inside the image.
+Dockerfile
+.dockerignore

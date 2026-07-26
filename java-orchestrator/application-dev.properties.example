@@ -1,0 +1,29 @@
+# Copy to application-dev.properties (gitignored) and fill in.
+#
+# Local development only. Deployments activate SPRING_PROFILES_ACTIVE=prod and
+# supply the same values as environment variables, which Spring's relaxed
+# binding maps automatically:
+#
+#   POWERLIFTING_INTERNAL_API_KEY   -> powerlifting.internal-api-key
+#   POWERLIFTING_SUPABASE_SECRETKEY -> powerlifting.supabase.secret-key
+#   SPRING_AI_OPENAI_API_KEY        -> spring.ai.openai.api-key
+
+# Shared secret with the Next.js gateway (its ORCHESTRATOR_API_KEY).
+powerlifting.internal-api-key=change-me
+
+# OpenRouter key: planner, generator, summarizer and embeddings.
+spring.ai.openai.api-key=sk-or-...
+
+# Supabase project holding the knowledge base (service_role key — bypasses RLS).
+powerlifting.supabase.url=https://<project>.supabase.co
+powerlifting.supabase.secret-key=
+
+# OpenPowerlifting meet results (JDBC form — note jdbc: prefix, and credentials
+# are separate properties, not embedded in the URL). Start it with:
+#   cd infra && docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d opl-db
+spring.datasource.url=jdbc:postgresql://localhost:5433/openpowerlifting
+spring.datasource.username=opl
+spring.datasource.password=<password>
+
+# Content-free at INFO; DEBUG shows queries and tool arguments.
+logging.level.com.powerlifting.orchestrator=DEBUG

@@ -593,10 +593,6 @@
   type: article  # 7 · programming help, somewhat specific
 - url: https://www.barbellmedicine.com/product-category/training-templates
   type: article  # 8 · high relevance, programming focus
-- url: https://www.barbellmedicine.com/the-team
-  type: article  # 8 · likely expert strength content
-- url: https://www.barbellmedicine.com/app
-  type: article  # 7 · likely actionable training info
 - url: https://www.barbellmedicine.com/blog/how-fast-do-you-lose-muscle-and-strength
   type: article  # 7 · relevant muscle loss info
 - url: https://www.barbellmedicine.com/blog/strength-training-guide

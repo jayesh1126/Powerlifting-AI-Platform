@@ -27,23 +27,17 @@ jobs:
           NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
           NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: placeholder
 
-  orchestrator-checks:
+  java-orchestrator-checks:
     runs-on: ubuntu-latest
-    defaults: { run: { working-directory: orchestrator } }
+    defaults: { run: { working-directory: java-orchestrator } }
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.14"
-          cache: pip
-          cache-dependency-path: orchestrator/requirements.txt
-      - run: pip install -r requirements.txt
-      - run: python -m compileall -q app
-      - run: python -c "from app.main import app" # import smoke test — catches wiring errors
-        env: { INTERNAL_API_KEY: ci-only-dummy } # settings require it to exist
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 25, cache: gradle }
+      - run: ./gradlew build   # compile + all tests
 
   build-and-push:
-    needs: [web-checks, orchestrator-checks] # the gate: broken code never builds
+    needs: [web-checks, java-orchestrator-checks] # the gate: broken code never builds
     if: github.event_name == 'push' && github.ref == 'refs/heads/main' # PRs stop at checks
     runs-on: ubuntu-latest
     permissions:
@@ -51,7 +45,7 @@ jobs:
       packages: write # lets GITHUB_TOKEN push to GHCR
     strategy:
       matrix:
-        service: [web, orchestrator]
+        service: [web, java-orchestrator]
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@v3
@@ -92,8 +86,8 @@ jobs:
             grep -q '^IMAGE_TAG=' .env \
               && sed -i "s/^IMAGE_TAG=.*/IMAGE_TAG=${{ github.sha }}/" .env \
               || echo "IMAGE_TAG=${{ github.sha }}" >> .env
-            docker compose pull web orchestrator
-            docker compose up -d
+            docker compose pull web java-orchestrator
+            docker compose up -d --remove-orphans
             # Caddy reads its config at startup; reload picks up Caddyfile
             # changes from the git reset with zero downtime. No-ops when
             # config is unchanged.
@@ -106,7 +100,7 @@ jobs:
             # critical path — a transient edge reset failed a good deploy.
             # Public reachability is the uptime monitor's job, not this one's.
             curl -fsS --resolve powerlifting-ai.com:443:127.0.0.1 https://powerlifting-ai.com/ > /dev/null
-            docker compose exec -T orchestrator python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=5)"
+            docker compose exec -T java-orchestrator curl -fsS http://localhost:8080/actuator/health
             echo "deployed ${{ github.sha }}"
 
   prune-old-images:
@@ -114,7 +108,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        service: [web, orchestrator]
+        service: [web, java-orchestrator]
     steps:
       - uses: actions/delete-package-versions@v5
         with:

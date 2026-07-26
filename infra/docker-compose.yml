@@ -50,26 +50,26 @@ services:
       - ../web/.env
     environment:
       # Service-internal address overrides the localhost value in .env.
-      ORCHESTRATOR_URL: http://orchestrator:8000
+      ORCHESTRATOR_URL: http://java-orchestrator:8080
     depends_on:
-      - orchestrator
+      - java-orchestrator
     networks:
       - app_net
-
-  orchestrator:
-    image: ghcr.io/jayesh1126/powerlifting-ai-orchestrator:${IMAGE_TAG:-latest}
-    build: ../orchestrator
+  
+  java-orchestrator:
+    image: ghcr.io/jayesh1126/powerlifting-ai-java-orchestrator:${IMAGE_TAG:-latest}
+    build: ../java-orchestrator
     restart: unless-stopped
     env_file:
-      - ../orchestrator/.env
+      - ../java-orchestrator/.env
     environment:
-      OPL_DATABASE_URL: postgresql://${OPL_POSTGRES_USER:-opl}:${OPL_POSTGRES_PASSWORD}@opl-db:5432/${OPL_POSTGRES_DB:-openpowerlifting}
-      # Single-line JSON logs to match the web service (which switches on
-      # NODE_ENV=production), so one aggregator config parses both.
-      LOG_FORMAT: json
-      # Pinned so a stray LOG_LEVEL=DEBUG in the service .env can't leak
-      # user content into production logs (INFO+ is content-free).
-      LOG_LEVEL: INFO
+      SPRING_PROFILES_ACTIVE: prod
+      # Reach opl-db by its service name on the internal network, port 5432
+      # (5433 is only the host-published dev port). Reuses the same OPL_* vars
+      # from infra/.env the Python orchestrator already uses.
+      SPRING_DATASOURCE_URL: jdbc:postgresql://opl-db:5432/${OPL_POSTGRES_DB:-openpowerlifting}
+      SPRING_DATASOURCE_USERNAME: ${OPL_POSTGRES_USER:-opl}
+      SPRING_DATASOURCE_PASSWORD: ${OPL_POSTGRES_PASSWORD}
     depends_on:
       opl-db:
         condition: service_healthy

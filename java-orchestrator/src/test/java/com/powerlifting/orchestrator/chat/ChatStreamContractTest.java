@@ -27,7 +27,15 @@ import org.springframework.web.client.RestClient;
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
         properties = {
                 "powerlifting.internal-api-key=test-key",
-                "spring.ai.openai.api-key=test-openai-key"
+                "spring.ai.openai.api-key=test-openai-key",
+                // A datasource URL so the JDBC autoconfiguration can build its
+                // bean and the context loads. Nothing connects: the pool inits
+                // lazily (initialization-fail-timeout=-1) and ChatService is
+                // mocked, so no query ever runs against this dummy target. In a
+                // real run the URL comes from the active profile / environment.
+                "spring.datasource.url=jdbc:postgresql://localhost:5432/unused",
+                "spring.datasource.username=unused",
+                "spring.datasource.password=unused"
         })
 class ChatStreamContractTest {
 

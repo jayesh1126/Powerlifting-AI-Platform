@@ -1,0 +1,46 @@
+# Automated dependency + CVE update PRs.
+#
+# Covers the Java backend (Gradle), the web gateway (npm), both service
+# Dockerfiles (base images), and the GitHub Actions used by the pipeline.
+# The Python service (orchestrator/) and the offline knowledge scripts are
+# deliberately NOT watched — Python is retired and the scripts are laptop-only.
+#
+# Grouped by minor/patch so routine bumps arrive as one PR per ecosystem
+# instead of a flood; majors still come as individual PRs to review on their own.
+version: 2
+updates:
+  - package-ecosystem: gradle
+    directory: /java-orchestrator
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      java-minor-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: npm
+    directory: /web
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      web-minor-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: docker
+    directory: /java-orchestrator
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: docker
+    directory: /web
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions-minor-patch:
+        update-types: [minor, patch]

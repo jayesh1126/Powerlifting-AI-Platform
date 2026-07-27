@@ -37,6 +37,12 @@ public class Instrumentation {
 
     public static final String OUTCOME_OK = "ok";
     public static final String OUTCOME_ERROR = "error";
+    // Normalize only: the input worked but was not a program. Distinct from
+    // error so it does not inflate the error rate.
+    public static final String OUTCOME_REJECTED = "rejected";
+
+    public static final String OP_NORMALIZE = "normalize";
+    public static final String OP_SUGGEST = "suggest";
 
     // Same bucket boundaries the dashboards expect. Stage durations routinely
     // reach tens of seconds (the generation stage), so the buckets extend well
@@ -52,9 +58,10 @@ public class Instrumentation {
     // _count/_sum series still capture every request.
     private static final double[] DOCS_SLOS = {1, 2, 5, 10, 20};
 
-    // The stages ChatService times, pre-registered so their series exist at zero.
+    // The stages the runtimes time, pre-registered so their series exist at
+    // zero. "retrieval" is shared by chat and program suggest.
     private static final List<String> KNOWN_STAGES =
-            List.of("planner", "retrieval", "generation", "summary");
+            List.of("planner", "retrieval", "generation", "summary", "normalize", "suggest_llm");
 
     // The tools the model can call, pre-registered × {ok, error}.
     private static final List<String> KNOWN_TOOLS =
@@ -84,6 +91,18 @@ public class Instrumentation {
             issueCounter(issue);
         }
 
+        // Program feature. Only normalize can reject ("that's a recipe");
+        // suggest either works or errors.
+        for (String outcome : List.of(OUTCOME_OK, OUTCOME_REJECTED, OUTCOME_ERROR)) {
+            programRequestCounter(OP_NORMALIZE, outcome);
+        }
+        for (String outcome : List.of(OUTCOME_OK, OUTCOME_ERROR)) {
+            programRequestCounter(OP_SUGGEST, outcome);
+        }
+        for (String status : List.of("emitted", "dropped")) {
+            suggestionCounter(status);
+        }
+
         this.docsRetrieved = DistributionSummary.builder("docs.retrieved")
                 .description("Documents retrieved per request")
                 .serviceLevelObjectives(DOCS_SLOS)
@@ -98,7 +117,38 @@ public class Instrumentation {
      */
     public void recordRequest(RequestMetrics metrics, String outcome) {
         requestCounter(outcome).increment();
+        foldStagesTokensDocs(metrics);
+        recordToolCalls(metrics);
+        for (String issue : metrics.verifierIssues()) {
+            issueCounter(issue).increment();
+        }
+    }
 
+    /**
+     * Folds one finished program request (normalize or suggest) into the
+     * aggregate meters.
+     *
+     * @param op      {@link #OP_NORMALIZE} or {@link #OP_SUGGEST}
+     * @param outcome {@link #OUTCOME_OK}, {@link #OUTCOME_REJECTED} (normalize
+     *                only) or {@link #OUTCOME_ERROR}
+     */
+    public void recordProgramRequest(RequestMetrics metrics, String op, String outcome) {
+        programRequestCounter(op, outcome).increment();
+        foldStagesTokensDocs(metrics);
+    }
+
+    /** Suggestions the model produced, split by whether they survived validation. */
+    public void recordSuggestions(int emitted, int dropped) {
+        if (emitted > 0) {
+            suggestionCounter("emitted").increment(emitted);
+        }
+        if (dropped > 0) {
+            suggestionCounter("dropped").increment(dropped);
+        }
+    }
+
+    /** Stage latencies, token usage and docs retrieved — common to both runtimes. */
+    private void foldStagesTokensDocs(RequestMetrics metrics) {
         metrics.latenciesMs().forEach((stage, ms) ->
                 stageTimers.computeIfAbsent(stage, this::buildStageTimer)
                         .record(Duration.ofNanos(Math.round(ms * 1_000_000))));
@@ -109,12 +159,6 @@ public class Instrumentation {
         }
         if (metrics.completionTokens() > 0) {
             tokenCounter("completion", model).increment(metrics.completionTokens());
-        }
-
-        recordToolCalls(metrics);
-
-        for (String issue : metrics.verifierIssues()) {
-            issueCounter(issue).increment();
         }
 
         docsRetrieved.record(metrics.docsRetrieved());
@@ -163,6 +207,14 @@ public class Instrumentation {
 
     private Counter issueCounter(String issue) {
         return registry.counter("verifier.issues", "issue", issue);
+    }
+
+    private Counter programRequestCounter(String op, String outcome) {
+        return registry.counter("program.requests", "op", op, "outcome", outcome);
+    }
+
+    private Counter suggestionCounter(String status) {
+        return registry.counter("program.suggestions", "status", status);
     }
 
     private Timer buildStageTimer(String stage) {

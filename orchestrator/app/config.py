@@ -27,6 +27,15 @@ class Settings(BaseSettings):
     summarizer_model: str = "meta-llama/llama-3.1-8b-instruct"
     embedding_model: str = "text-embedding-3-large"
 
+    # Program feature (normalize + suggest). gpt-4.1-mini: cheap enough to
+    # run per-request, strong enough for strict JSON.
+    program_model: str = "openai/gpt-4.1-mini"
+    # Normalized 12-week programs are large JSON documents; headroom matters.
+    # The normalize prompt omits null/default fields to keep output compact,
+    # but a dense multi-week program still runs thousands of tokens.
+    program_max_tokens: int = 16_000
+
+
     # --- Data stores --------------------------------------------------------
     # Supabase (pgvector knowledge base) — for retrieval.
     supabase_url: str | None = None

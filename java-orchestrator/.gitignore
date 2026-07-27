@@ -41,3 +41,4 @@ out/
 # Copy application-dev.properties.example and fill it in.
 /application-dev.properties
 .env
+/PORT_PLAN.md

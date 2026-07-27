@@ -108,8 +108,138 @@ class ErrorEvent(BaseModel):
     message: str
 
 
+# ---------------------------------------------------------------------------
+# Program contract. Mirrors the Program types in web/src/lib/program.ts —
+# change both together.
+#
+# Node ids: every week/day/exercise carries a stable string id ("w1d2e3").
+# The LLM never produces ids (default "" = unassigned); the orchestrator
+# assigns them after validation, and AI suggestions target them. The client
+# generates its own ids for manually added nodes.
+# ---------------------------------------------------------------------------
+
+
+class ExercisePrescription(BaseModel):
+    id: str = ""
+    name: str
+    sets: int | None = None
+    # "3x8-10" -> sets=3, reps_min=8, reps_max=10; single value -> min == max
+    reps_min: int | None = None
+    reps_max: int | None = None
+    amrap: bool = False
+    # "RPE 7-8" -> rpe=7, rpe_max=8; single value -> rpe only
+    rpe: float | None = None
+    rpe_max: float | None = None
+    percentage: float | None = None  # % of 1RM, 0-100
+    superset_group: str | None = None  # same label = performed together
+    notes: str | None = None
+    raw: str | None = None  # original text when parsing was lossy
+
+
+class ProgramDay(BaseModel):
+    id: str = ""
+    label: str  # "Day 1" / "Monday" — normalizer invents "Day N" if unnamed
+    exercises: list[ExercisePrescription] = []
+    notes: str | None = None
+
+
+class ProgramWeek(BaseModel):
+    id: str = ""
+    label: str  # "Week 1"
+    block: str | None = None  # optional block label, not a structural layer
+    days: list[ProgramDay] = []
+    notes: str | None = None
+
+
+class Program(BaseModel):
+    title: str | None = None
+    weeks: list[ProgramWeek] = []  # gateway enforces the 12-week cap
+    notes: str | None = None
+    warnings: list[str] = []  # normalizer's "couldn't structure X" notes
+
+
+SuggestionKind = Literal[
+    "modify_exercise",
+    "add_exercise",
+    "remove_exercise",
+    "add_day",
+    "remove_day",
+    "program_note",
+]
+
+
+class Suggestion(BaseModel):
+    """One discrete, individually acceptable edit. The closed `kind`
+    vocabulary is the AI's entire editing power: anything it cannot express
+    here, it cannot suggest — which is what makes suggestions validatable
+    against the program before they reach the client."""
+
+    id: str  # assigned by the orchestrator, not the LLM
+    kind: SuggestionKind
+    # modify/remove_exercise -> exercise id; add_exercise/remove_day -> day
+    # id; add_day -> week id; program_note -> None.
+    target_id: str | None = None
+    # modify_exercise: partial ExercisePrescription fields;
+    # add_exercise: full exercise; add_day: full day. None for removals/notes.
+    payload: dict | None = None
+    rationale: str
+
+class ProgramNormalizeRequest(BaseModel):
+    user_id: str
+    # The raw paste. Cap mirrors the gateway's zod max — both boundaries agree.
+    program_text: str = Field(min_length=1, max_length=20_000)
+    request_context: RequestContext = RequestContext()
+
+
+class ProgramNormalizeResponse(BaseModel):
+    """Plain JSON response (not NDJSON) — a single structured document
+    gains nothing from streaming."""
+
+    is_program: bool
+    reason: str | None = None  # human-readable, only when is_program=False
+    program: Program | None = None  # ids assigned, only when is_program=True
+
+
+class ProgramSuggestRequest(BaseModel):
+    user_id: str
+    program: Program
+    # The user's targeted ask ("make day 2 easier"); None = general insights.
+    instruction: str | None = Field(default=None, max_length=500)
+    request_context: RequestContext = RequestContext()
+
+
+class AssessmentEvent(BaseModel):
+    """Suggest stream: the 2-3 sentence overall read, before suggestions."""
+
+    type: Literal["assessment"] = "assessment"
+    text: str
+
+
+class SuggestionEvent(BaseModel):
+    """Suggest stream: one validated suggestion, emitted as soon as its
+    JSONL line completes — cards appear one by one in the UI."""
+
+    type: Literal["suggestion"] = "suggestion"
+    suggestion: Suggestion
+
+
+# ---------------------------------------------------------------------------
+# The full event vocabulary. Defined last so every event type is in scope;
+# the gateway ignores types it doesn't know, so chat and program streams
+# can share one union without breaking each other.
+# ---------------------------------------------------------------------------
+
 StreamEvent = Annotated[
-    Union[TokenEvent, CitationsEvent, SummaryEvent, MetricsEvent, EndEvent, ErrorEvent],
+    Union[
+        TokenEvent,
+        CitationsEvent,
+        SummaryEvent,
+        MetricsEvent,
+        EndEvent,
+        ErrorEvent,
+        AssessmentEvent,
+        SuggestionEvent,
+    ],
     Field(discriminator="type"),
 ]
 

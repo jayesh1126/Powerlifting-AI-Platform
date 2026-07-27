@@ -38,7 +38,8 @@ public record OrchestratorProperties(
             @DefaultValue("meta-llama/llama-3.1-8b-instruct") String summarizer,
             @DefaultValue("text-embedding-3-large") String embedding,
             @DefaultValue("openai/gpt-4.1-mini") String program,
-            @DefaultValue("8000") int programMaxTokens) {
+            @DefaultValue("openai/gpt-4.1-mini") String programNormalize,
+            @DefaultValue("20000") int programMaxTokens) {
     }
 
     /** Knowledge base. The secret key is service_role: it bypasses RLS. */

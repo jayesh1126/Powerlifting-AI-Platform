@@ -2,6 +2,7 @@ package com.powerlifting.orchestrator.stream;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
+import com.powerlifting.orchestrator.programs.model.Suggestion;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -87,5 +88,25 @@ public sealed interface StreamEvent {
     @JsonPropertyOrder({"type", "message"})
     record Error(String message) implements StreamEvent {
         @Override public String type() { return "error"; }
+    }
+
+    // --- Program suggest stream. These share the one event vocabulary (and so
+    //     the one NdjsonSink) rather than defining a parallel stream: the
+    //     gateway already tolerates unknown types, so chat and programs can
+    //     draw from the same sealed set. ---
+
+    /** The 2-3 sentence overall read of a program, sent before its suggestions. */
+    @JsonPropertyOrder({"type", "text"})
+    record Assessment(String text) implements StreamEvent {
+        @Override public String type() { return "assessment"; }
+    }
+
+    /**
+     * One validated suggestion, emitted as soon as its JSONL line completes so
+     * cards appear one at a time in the editor.
+     */
+    @JsonPropertyOrder({"type", "suggestion"})
+    record SuggestionEvent(Suggestion suggestion) implements StreamEvent {
+        @Override public String type() { return "suggestion"; }
     }
 }

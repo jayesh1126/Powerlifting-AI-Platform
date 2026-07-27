@@ -19,7 +19,8 @@ class RequestMetricsTest {
 
         assertThat(data.keySet()).containsExactly(
                 "latencies_ms", "prompt_tokens", "completion_tokens", "tools_used",
-                "tool_errors", "docs_retrieved", "plan", "generator_model", "verifier_issues");
+                "tool_errors", "docs_retrieved", "plan", "generator_model",
+                "ttft_ms", "generation_finish_reason", "verifier_issues");
     }
 
     @Test

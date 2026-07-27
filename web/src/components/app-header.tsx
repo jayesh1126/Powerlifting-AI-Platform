@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { House, LogOut, Menu, MessageSquare, Settings } from "lucide-react";
+import { ClipboardList, House, LogOut, Menu, MessageSquare, Settings } from "lucide-react";
 import { useSidebar } from "@/components/chat/sidebar-context";
 import { cn } from "@/lib/utils";
 
@@ -61,6 +61,17 @@ export function AppHeader({ avatarUrl }: { avatarUrl?: string }) {
           >
             <MessageSquare className="h-4 w-4" />
             <span className="hidden sm:inline">Chat</span>
+          </Link>
+
+          <Link
+            href="/programs"
+            className={cn(
+              NAV_ITEM,
+              pathname.startsWith("/programs") ? NAV_ACTIVE : NAV_IDLE
+            )}
+          >
+            <ClipboardList className="h-4 w-4" />
+            <span className="hidden sm:inline">Programs</span>
           </Link>
 
           <Link

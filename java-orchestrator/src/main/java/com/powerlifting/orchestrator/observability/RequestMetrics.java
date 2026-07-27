@@ -33,6 +33,8 @@ public class RequestMetrics {
     private int docsRetrieved;
     private Map<String, Object> plan = Map.of();
     private String generatorModel;
+    private Integer ttftMs;
+    private String generationFinishReason;
     private List<String> verifierIssues = List.of();
 
     public RequestMetrics(String userId, String chatId) {
@@ -85,6 +87,29 @@ public class RequestMetrics {
 
     public void setGeneratorModel(String generatorModel) {
         this.generatorModel = generatorModel;
+    }
+
+    /**
+     * Records time-to-first-token once, from the generation-stage start. The
+     * gap between this and the generation stage's total latency is the
+     * streaming tail; a TTFT close to the total means nothing streamed.
+     */
+    public void markFirstToken(long genStartNanos) {
+        if (ttftMs == null) {
+            ttftMs = (int) Math.round((System.nanoTime() - genStartNanos) / 1_000_000.0);
+        }
+    }
+
+    public void setGenerationFinishReason(String reason) {
+        this.generationFinishReason = reason;
+    }
+
+    public Integer ttftMs() {
+        return ttftMs;
+    }
+
+    public String generationFinishReason() {
+        return generationFinishReason;
     }
 
     public void setVerifierIssues(List<String> verifierIssues) {
@@ -146,6 +171,8 @@ public class RequestMetrics {
         out.put("docs_retrieved", docsRetrieved);
         out.put("plan", plan);
         out.put("generator_model", generatorModel);
+        out.put("ttft_ms", ttftMs);
+        out.put("generation_finish_reason", generationFinishReason);
         out.put("verifier_issues", verifierIssues);
         return out;
     }

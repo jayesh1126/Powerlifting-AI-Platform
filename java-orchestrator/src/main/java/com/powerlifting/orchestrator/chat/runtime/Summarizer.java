@@ -56,7 +56,10 @@ public class Summarizer {
             String summary = chatClient.prompt()
                     .options(ChatModelConfig.optionsFor(properties.models().summarizer())
                             .temperature(0.3)
-                            .maxTokens(400))
+                            // A little headroom so a longer conversation's rolling
+                            // summary isn't clipped mid-sentence; it stays concise
+                            // by prompt, this is just the ceiling.
+                            .maxTokens(700))
                     .system(SYSTEM_PROMPT)
                     .user(userContent)
                     .call()

@@ -115,6 +115,7 @@ public class Generator {
         List<Message> messages = buildMessages(ctx, plan, retrieved);
         StringBuilder answer = new StringBuilder();
         int maxRounds = properties.runtime().maxToolRounds();
+        long genStart = System.nanoTime();
 
         for (int round = 0; round <= maxRounds; round++) {
             // The planner granted these tools because the query NEEDS their
@@ -122,9 +123,13 @@ public class Generator {
             // them so the model has no choice but to answer.
             boolean allowTools = !tools.isEmpty() && round < maxRounds;
 
+            // Output cap, not context: history/summary growth is bounded by the
+            // model's (large) context window and ContextBuilder's trimming, not
+            // by this. The headroom is for a long *answer* — e.g. the model
+            // writing a full multi-week program inline on a program_design turn.
             OpenAiChatOptions.Builder options = ChatModelConfig.optionsFor(properties.models().generator())
                     .temperature(0.4)
-                    .maxTokens(4000)
+                    .maxTokens(8000)
                     .streamOptions(OpenAiChatOptions.StreamOptions.builder()
                             .includeUsage(true).build());
             if (allowTools) {
@@ -139,15 +144,33 @@ public class Generator {
             int roundStart = answer.length();
 
             List<ToolCall> toolCalls = streamRound(
-                    new Prompt(messages, options.build()), answer, metrics, sink);
+                    new Prompt(messages, options.build()), answer, metrics, sink, genStart);
 
             if (toolCalls.isEmpty()) {
+                logGenerationOutcome(metrics);
                 return answer.toString();     // final answer finished streaming
             }
             executeToolRound(round, toolCalls, tools, messages,
                     answer.substring(roundStart), metrics);
         }
+        logGenerationOutcome(metrics);
         return answer.toString();
+    }
+
+    /**
+     * One content-free line per turn for debugging model behaviour and latency:
+     * which model answered, how long until the first token reached the user
+     * (streaming health), and why generation stopped. A {@code length} finish
+     * reason means the answer was cut off at the token ceiling — loud on its own
+     * line because it is otherwise invisible and silently truncates answers.
+     */
+    private void logGenerationOutcome(RequestMetrics metrics) {
+        log.info("generation: model={} ttft_ms={} finish_reason={}",
+                metrics.generatorModel(), metrics.ttftMs(), metrics.generationFinishReason());
+        if ("length".equalsIgnoreCase(metrics.generationFinishReason())) {
+            log.warn("generation stopped at the token ceiling (finish_reason=length) — "
+                    + "the answer was truncated; raise the generator maxTokens");
+        }
     }
 
     /**
@@ -155,7 +178,7 @@ public class Generator {
      * calls. Returns the tool calls the model asked for, empty if it answered.
      */
     private List<ToolCall> streamRound(Prompt prompt, StringBuilder answer,
-                                       RequestMetrics metrics, EventSink sink) {
+                                       RequestMetrics metrics, EventSink sink, long genStart) {
         ToolCallAccumulator toolCalls = new ToolCallAccumulator();
         StreamUsage usage = new StreamUsage();
 
@@ -181,8 +204,13 @@ public class Generator {
             responses.forEach(response -> {
                 String delta = textOf(response);
                 if (delta != null && !delta.isEmpty()) {
+                    metrics.markFirstToken(genStart);   // time-to-first-token, set once
                     answer.append(delta);
                     sink.emit(new StreamEvent.Token(delta));
+                }
+                String finishReason = finishReasonOf(response);
+                if (finishReason != null) {
+                    metrics.setGenerationFinishReason(finishReason);   // last non-null wins
                 }
                 toolCalls.observe(response);
                 usage.observe(response);
@@ -191,6 +219,14 @@ public class Generator {
 
         metrics.addUsage(usage.promptTokens, usage.completionTokens);
         return toolCalls.isEmpty() ? List.of() : toToolCallList(toolCalls);
+    }
+
+    private static String finishReasonOf(ChatResponse response) {
+        if (response == null || response.getResult() == null
+                || response.getResult().getMetadata() == null) {
+            return null;
+        }
+        return response.getResult().getMetadata().getFinishReason();
     }
 
     private static List<ToolCall> toToolCallList(ToolCallAccumulator accumulator) {

@@ -151,6 +151,33 @@ HTTP response.
   written, so the caller sees tokens in real time.
 - **Structured output**: the planner and query-rewriter use Spring AI's
   `.entity(...)`, so the JSON schema is derived from the record and can't drift.
+- **Streaming writes to the raw response, not `StreamingResponseBody`.** Spring
+  wraps the latter in a stream whose `flush()` is a no-op, which buffers the
+  whole answer to the end; writing to `HttpServletResponse` directly (on the
+  request's virtual thread) lets each event flush live.
+
+---
+
+## The programs feature
+
+Two endpoints turn a user's own training program into something the editor can
+work with. They share the chat runtime's building blocks (knowledge retrieval,
+the `toStream` bridge, `NdjsonSink`, `RequestMetrics`) but are their own flow.
+
+- **`POST /v1/programs/normalize`** — messy pasted text → a canonical `Program`
+  (weeks → days → exercises) with stable node ids. One structured LLM call with
+  a two-attempt validate-and-repair loop; a truncated response is reported as
+  "too large" (422) rather than retried, and a non-program input is a clean
+  rejection (`is_program: false`), not an error. Plain JSON, not a stream.
+- **`POST /v1/programs/suggest`** — a program (plus an optional instruction like
+  "make day 2 easier") → an NDJSON stream: one `assessment`, then discrete
+  `suggestion` cards. The model emits JSONL; `SuggestLineParser` validates every
+  line against the program's node ids and its closed edit vocabulary before
+  emitting it, so a hallucinated target or malformed edit is dropped and counted,
+  never sent to the client. Grounded by the same knowledge retrieval as chat.
+
+Node ids (`w1`, `w1d2`, `w1d2e3`) are assigned deterministically after
+normalization and are what suggestions target — the model never invents them.
 
 ---
 
@@ -180,7 +207,9 @@ In production, relaxed binding maps env vars automatically, e.g.
 
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
-| POST | `/v1/chat/stream` | `X-Internal-Api-Key` | the one AI endpoint (NDJSON stream) |
+| POST | `/v1/chat/stream` | `X-Internal-Api-Key` | AI chat turn (NDJSON stream) |
+| POST | `/v1/programs/normalize` | `X-Internal-Api-Key` | pasted program text → canonical Program JSON |
+| POST | `/v1/programs/suggest` | `X-Internal-Api-Key` | program → streamed AI suggestions (NDJSON) |
 | GET | `/actuator/health` | open | liveness/readiness |
 | GET | `/actuator/prometheus` | open | metrics scrape |
 | GET | `/swagger-ui.html`, `/v3/api-docs` | open | API docs |
@@ -197,11 +226,14 @@ exposes ports in `infra/`).
 chat/            ChatController, ChatService
   model/         request DTOs (ChatStreamRequest, ChatMessage, ...)
   runtime/       the pipeline stages (Planner, Generator, Verifier, Summarizer, ContextBuilder)
+programs/        ProgramController (normalize + suggest)
+  model/         Program, ProgramWeek, ProgramDay, ExercisePrescription, Suggestion, request/response DTOs
+  runtime/       ProgramNormalizer, ProgramSuggester, SuggestLineParser, NodeIds
 retrieval/       KnowledgeRetrievalService, SupabaseKnowledgeClient, CanonicalTopics
 tools/           OplTools (@Tool methods), CountryNormalizer, ToolRegistry
 stream/          StreamEvent (sealed), EventSink, NdjsonSink
 filter/          InternalApiKeyFilter, RequestIdFilter
-observability/   RequestMetrics
+observability/   RequestMetrics, Instrumentation
 config/          OrchestratorProperties, ChatModelConfig, OpenApiConfig
 ```
 
@@ -216,11 +248,13 @@ each stage the service calls.
 Live in production — the sole AI backend since the Python service was retired.
 Complete and verified end to end: the full chat pipeline (context policy,
 planner with heuristic fallback, retrieval, citations, the agentic tool loop
-against real OpenPowerlifting data, verification, rolling summary), per-request
-metrics exported to Prometheus, structured JSON logging in prod, NDJSON
-streaming, API-key auth, request-id correlation, containerised and continuously
-deployed.
+against real OpenPowerlifting data, verification, rolling summary), the
+**programs** feature (`/v1/programs/normalize` + `/v1/programs/suggest`),
+per-request metrics exported to Prometheus, structured JSON logging in prod,
+NDJSON streaming, API-key auth, request-id correlation, containerised and
+continuously deployed.
 
-Not yet ported: the **programs** feature (`/v1/programs/*` — normalize a pasted
-program and stream AI suggestions). It is independent of the chat pipeline and
-still served by the earlier stack; it's the one remaining piece.
+Outstanding: a golden-file contract test to pin the wire contract shared with
+the gateway (currently discipline-enforced), and a Grafana dashboard row for the
+program metrics (the meters already export; the panels are a separate `infra/`
+change).

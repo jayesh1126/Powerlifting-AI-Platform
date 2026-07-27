@@ -187,39 +187,37 @@ Programs must respect workload consistency using ACWR principles:
 
 ---
 
-## 9. Anthropometry & Individualization (Mandatory)
+## 8a. Weekly Volume Budget (per lift)
 
-### Range of Motion
+Count hard sets **fractionally**: a competition-style lift = **1.0 set**; a close
+variation (front squat, hack squat, leg press, paused/tempo work, RDL for the
+deadlift) = **~0.5 set**.
 
-| ROM Type  | Best Rep Response |
-| --------- | ----------------- |
-| Short ROM | 4–10 reps         |
-| Long ROM  | 1–5 reps          |
+Per primary lift, per week:
 
-Programming volume must scale with **distance traveled**, not simply barbell load.
+- Strength emphasis (short-term): **3–5 effective sets** is a productive dose.
+- Hypertrophy emphasis / long-term: layer additional volume toward
+  **5–10 sets per muscle group per week**, mostly from variations and accessories,
+  not from the competition lift itself.
+- Minimum effective dose ≈ **1 set/lift/week** (rises with training age).
 
-Application Rules
-
-Long-ROM lifters:
-- Fewer backdowns
-- Earlier transition to lower reps
-- Reduced eccentric stress
-
-Short-ROM lifters:
-- More backdowns permitted
-- Longer accumulation exposure
-- Slightly higher accessory tolerance
+Default to the **low end** and add volume only when recovery markers allow. Never
+prescribe near-maximal weekly volume to a novice or unknown-tolerance lifter.
 
 ---
 
-### Sex-Based Adjustments
+## 9. Individualization
 
-| Trait            | Female Lifters | Male Lifters |
-| ---------------- | -------------- | ------------ |
-| Volume tolerance | Higher         | Moderate     |
-| RPE recovery     | Slower         | Faster       |
-| Squat frequency  | 2–3×           | 1–2×         |
-| Bench frequency  | 3–4×           | 2–3×         |
+Start conservative and autoregulate upward. There is **no strong evidence** to
+preset higher volume or frequency from sex or limb length — so do not. A lifter's
+volume tolerance is revealed by their demonstrated recovery (RPE trend,
+week-to-week performance), not predicted from anthropometry.
+
+- Default new or unknown-tolerance lifters to the **low end** of the Section 8a
+  ranges, then increase only while recovery markers stay on target.
+- Long-ROM lifts (deficit pulls, long femurs on the squat) cost more fatigue per
+  set — bias toward fewer backdowns there, as a fatigue-cost heuristic, **not** a
+  fixed rep prescription.
 
 ---
 
@@ -240,7 +238,7 @@ The LLM must never:
 
 - Stack heavy squat and heavy deadlift back-to-back
 - Max test outside of a peak
-- Use fixed percentages without RPE
+- Use fixed percentages as the sole load target (percentages may guide, but RPE governs)
 - Deload by removing primary lifts
 - Chase volume without intensity progression
 - Introduce new variations under peak fatigue
@@ -297,6 +295,6 @@ Before a program can be output, all items below must be verified:
 5. Week 4 is the highest-stress week of the block
 6. Week 1 respects the RPE 5–6 cap
 7. Accessories do not exceed recovery capacity
-8. ROM and sex-based traits are considered
+8. Weekly volume respects the Section 8a budget; individualization defaults conservative (Section 9)
 
 If any item fails, **the program is invalid and must not be output**.

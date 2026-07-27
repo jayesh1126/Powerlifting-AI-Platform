@@ -18,7 +18,6 @@ import asyncio
 import json
 import logging
 from collections.abc import AsyncIterator
-from pathlib import Path
 
 from app.config import get_settings
 from app.llm import get_chat_client
@@ -26,25 +25,11 @@ from app.metrics import RequestMetrics
 from app.runtime.context_builder import RuntimeContext
 from app.runtime.planner import ExecutionPlan
 from app.tools.base import Tool
+from app.runtime.templates import load_program_templates
 
 logger = logging.getLogger(__name__)
 
 MAX_CHARS_PER_EXCERPT = 1400
-
-_TEMPLATES_PATH = Path(__file__).resolve().parents[2] / "content" / "program_templates.md"
-_templates_cache: str | None = None
-
-
-def load_program_templates() -> str:
-    global _templates_cache
-    if _templates_cache is None:
-        try:
-            _templates_cache = _TEMPLATES_PATH.read_text(encoding="utf-8")
-        except OSError:
-            logger.warning("program templates missing at %s", _TEMPLATES_PATH)
-            _templates_cache = "(no templates available)"
-    return _templates_cache
-
 
 # ---------------------------------------------------------------------------
 # Prompt assembly

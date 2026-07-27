@@ -1,4 +1,4 @@
-﻿export type Json =
+export type Json =
   | string
   | number
   | boolean
@@ -14,6 +14,27 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_usage: {
+        Row: {
+          created_at: string
+          id: number
+          kind: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: never
+          kind: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: never
+          kind?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       chats: {
         Row: {
           created_at: string
@@ -44,6 +65,87 @@ export type Database = {
         }
         Relationships: []
       }
+      knowledge_base_embeddings: {
+        Row: {
+          content: string | null
+          content_tsv: unknown
+          embedding: string | null
+          id: number
+          metadata: Json | null
+        }
+        Insert: {
+          content?: string | null
+          content_tsv?: unknown
+          embedding?: string | null
+          id?: number
+          metadata?: Json | null
+        }
+        Update: {
+          content?: string | null
+          content_tsv?: unknown
+          embedding?: string | null
+          id?: number
+          metadata?: Json | null
+        }
+        Relationships: []
+      }
+      knowledge_base_embeddings_v2: {
+        Row: {
+          author: string | null
+          chunk_index: number
+          content: string
+          content_hash: string
+          content_tsv: unknown
+          context: string | null
+          embedding: unknown
+          id: number
+          ingested_at: string
+          licence: string | null
+          parent_doc_id: string
+          published_at: string | null
+          source_type: string
+          source_url: string
+          title: string
+          topics: string[]
+        }
+        Insert: {
+          author?: string | null
+          chunk_index: number
+          content: string
+          content_hash: string
+          content_tsv?: unknown
+          context?: string | null
+          embedding: unknown
+          id?: number
+          ingested_at?: string
+          licence?: string | null
+          parent_doc_id: string
+          published_at?: string | null
+          source_type: string
+          source_url: string
+          title: string
+          topics?: string[]
+        }
+        Update: {
+          author?: string | null
+          chunk_index?: number
+          content?: string
+          content_hash?: string
+          content_tsv?: unknown
+          context?: string | null
+          embedding?: unknown
+          id?: number
+          ingested_at?: string
+          licence?: string | null
+          parent_doc_id?: string
+          published_at?: string | null
+          source_type?: string
+          source_url?: string
+          title?: string
+          topics?: string[]
+        }
+        Relationships: []
+      }
       markdown_chunks: {
         Row: {
           content: string | null
@@ -71,30 +173,30 @@ export type Database = {
       messages: {
         Row: {
           chat_id: string
+          citations: Json | null
           content: string
           created_at: string
           id: string
           role: string
           user_id: string
-          citations: Json | null
         }
         Insert: {
           chat_id: string
+          citations?: Json | null
           content: string
           created_at?: string
           id?: string
           role: string
           user_id: string
-          citations?: Json | null
         }
         Update: {
           chat_id?: string
+          citations?: Json | null
           content?: string
           created_at?: string
           id?: string
           role?: string
           user_id?: string
-          citations?: Json | null
         }
         Relationships: [
           {
@@ -130,8 +232,36 @@ export type Database = {
         }
         Relationships: []
       }
+      programs: {
+        Row: {
+          created_at: string
+          id: string
+          program: string
+          title: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          program: string
+          title?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          program?: string
+          title?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       request_counts: {
         Row: {
+          ai_actions_count: number
           count: number
           created_at: string
           id: number
@@ -141,6 +271,7 @@ export type Database = {
           year: number
         }
         Insert: {
+          ai_actions_count?: number
           count: number
           created_at?: string
           id?: number
@@ -150,6 +281,7 @@ export type Database = {
           year: number
         }
         Update: {
+          ai_actions_count?: number
           count?: number
           created_at?: string
           id?: number
@@ -232,6 +364,25 @@ export type Database = {
           metadata: Json
           rank: number
           similarity: number
+        }[]
+      }
+      match_knowledge_v3: {
+        Args: {
+          candidate_count?: number
+          match_count: number
+          query_embedding: unknown
+          query_text: string
+          topics: string[]
+        }
+        Returns: {
+          author: string
+          content: string
+          context: string
+          id: number
+          score: number
+          source_url: string
+          title: string
+          topics: string[]
         }[]
       }
       match_markdown_chunks: {

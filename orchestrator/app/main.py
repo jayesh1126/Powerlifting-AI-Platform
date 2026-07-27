@@ -8,6 +8,8 @@ from app.logging_setup import RequestIdMiddleware, configure_logging
 from app.routers.chat import router as chat_router
 from app.tools.opl import close_opl_pool
 from app.tools.retrieval import close_http_client
+from app.routers.programs import router as programs_router
+
 
 _settings = get_settings()
 configure_logging(_settings.log_level, _settings.log_format)
@@ -33,6 +35,7 @@ app = FastAPI(
 
 app.add_middleware(RequestIdMiddleware)
 app.include_router(chat_router)
+app.include_router(programs_router)
 app.mount("/metrics", make_asgi_app())
 
 

@@ -14,7 +14,7 @@ router = APIRouter(prefix="/v1", dependencies=[Depends(verify_internal_api_key)]
 
 @router.post("/chat/stream")
 async def chat_stream(req: ChatStreamRequest) -> StreamingResponse:
-    """The one AI endpoint. Streams NDJSON events (see app.models):
+    """Streams NDJSON events (see app.models):
     `token` lines while generating, then `citations` / `summary` /
     `metrics` / `end`.
 

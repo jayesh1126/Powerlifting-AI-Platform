@@ -1,7 +1,8 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
-import type { ChatInsert, MessageInsert } from "@/lib/types";
+import type { AiUsageKind, ChatInsert, MessageInsert } from "@/lib/types";
+import { programSchema, type Program } from "@/lib/program";
 import { encryptString, decryptString } from "@/lib/encryption";
 import { logger } from "@/lib/logger";
 
@@ -192,4 +193,169 @@ export async function deleteUserAccount(adminClient: DbClient, userId: string) {
   const { error } = await adminClient.auth.admin.deleteUser(userId);
   if (error) logger.error("[DB] deleteUserAccount failed", { err: error.message });
   return { error };
+}
+
+// ---------------------------------------------------------------------------
+// Programs — user training programs (contract in @/lib/program). The title
+// and the program JSON are user training data: encrypted at rest, same as
+// chat content. The list query never fetches the JSON — decrypting every
+// program to render titles would be pure waste.
+// ---------------------------------------------------------------------------
+
+export async function getPrograms(dbClient: DbClient, userId: string) {
+  const { data, error } = await dbClient
+    .from("programs")
+    .select("id, title, updated_at")
+    .eq("user_id", userId)
+    .order("updated_at", { ascending: false });
+
+  if (error) {
+    logger.error("[DB] getPrograms failed", { err: error.message });
+    return { data: null, error };
+  }
+
+  for (const program of data) {
+    if (program.title) program.title = safeDecrypt(program.title, "[Untitled]");
+  }
+  return { data, error: null };
+}
+
+/**
+ * Loads one program, ownership-scoped, and validates the decrypted JSON
+ * against the contract schema — a corrupt row or contract drift surfaces
+ * here, at the boundary, not deep inside the editor UI.
+ */
+export async function getProgram(
+  dbClient: DbClient,
+  userId: string,
+  programId: string
+) {
+  const { data, error } = await dbClient
+    .from("programs")
+    .select("*")
+    .eq("id", programId)
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (error) {
+    logger.error("[DB] getProgram failed", { err: error.message });
+    return { data: null, error };
+  }
+  if (!data) return { data: null, error: null }; // missing or not owned
+
+  let program: Program;
+  try {
+    program = programSchema.parse(JSON.parse(decryptString(data.program)));
+  } catch (err) {
+    logger.error("[DB] getProgram could not decode program", { err });
+    return { data: null, error: new Error("Program could not be decoded") };
+  }
+
+  return {
+    data: {
+      id: data.id,
+      title: data.title ? safeDecrypt(data.title, "") : null,
+      program,
+      created_at: data.created_at,
+      updated_at: data.updated_at,
+    },
+    error: null,
+  };
+}
+
+export async function createProgram(
+  dbClient: DbClient,
+  userId: string,
+  title: string | null,
+  program: Program
+) {
+  const { data, error } = await dbClient
+    .from("programs")
+    .insert({
+      user_id: userId,
+      title: title ? encryptString(title) : null,
+      program: encryptString(JSON.stringify(program)),
+    })
+    .select("id")
+    .single();
+
+  if (error) logger.error("[DB] createProgram failed", { err: error.message });
+  return { data, error };
+}
+
+export async function updateProgram(
+  dbClient: DbClient,
+  programId: string,
+  userId: string,
+  title: string | null,
+  program: Program
+) {
+  // updated_at is app-owned: chats get theirs from a DB trigger on message
+  // insert, but programs has no trigger — forgetting this would freeze the
+  // list ordering.
+  const { data, error } = await dbClient
+    .from("programs")
+    .update({
+      title: title ? encryptString(title) : null,
+      program: encryptString(JSON.stringify(program)),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", programId)
+    .eq("user_id", userId)
+    .select("id")
+    .single();
+
+  if (error) logger.error("[DB] updateProgram failed", { err: error.message });
+  return { data, error };
+}
+
+export async function deleteProgram(
+  dbClient: DbClient,
+  programId: string,
+  userId: string
+) {
+  const { data, error } = await dbClient
+    .from("programs")
+    .delete()
+    .eq("id", programId)
+    .eq("user_id", userId)
+    .select("id")
+    .single();
+
+  if (error) logger.error("[DB] deleteProgram failed", { err: error.message });
+  return { data, error };
+}
+
+// ---------------------------------------------------------------------------
+// AI usage ledger — the gateway only inserts the event; the DB trigger owns
+// the counter (single-writer invariant, same as chat quota).
+// ---------------------------------------------------------------------------
+
+export async function recordAiUsage(
+  dbClient: DbClient,
+  userId: string,
+  kind: AiUsageKind
+) {
+  const { error } = await dbClient
+    .from("ai_usage")
+    .insert({ user_id: userId, kind });
+
+  if (error) logger.error("[DB] recordAiUsage failed", { err: error.message });
+  return { error };
+}
+
+export async function getMonthlyAiActions(dbClient: DbClient, userId: string) {
+  const now = new Date();
+  const { data, error } = await dbClient
+    .from("request_counts")
+    .select("ai_actions_count")
+    .eq("user_id", userId)
+    .eq("year", now.getFullYear())
+    .eq("month", now.getMonth() + 1)
+    .maybeSingle();
+
+  if (error) {
+    logger.error("[DB] getMonthlyAiActions failed", { err: error.message });
+  }
+  return { count: data?.ai_actions_count ?? 0, error };
 }

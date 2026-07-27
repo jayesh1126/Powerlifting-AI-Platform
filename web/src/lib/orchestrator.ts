@@ -2,6 +2,8 @@ import "server-only";
 import { serverEnv } from "@/lib/env";
 import { logger } from "@/lib/logger";
 import type { ChatRole } from "@/lib/types";
+import { programSchema, type Program } from "@/lib/program";
+import type { ProgramStreamEvent } from "@/lib/program-protocol";
 
 /**
  * Client for the Python orchestrator (the AI runtime). The Next.js layer
@@ -201,4 +203,198 @@ function parseEventStream(
   });
 
   return { textStream, completion };
+}
+
+// ---------------------------------------------------------------------------
+// Programs (contract mirror: orchestrator/app/models.py — change together)
+// ---------------------------------------------------------------------------
+
+/** A typed failure so routes can map specific orchestrator statuses (e.g.
+ * 422 "program too large") to user-facing responses instead of a generic 500. */
+export class OrchestratorError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+  ) {
+    super(message);
+  }
+}
+
+/** Normalize is one LLM call plus one repair retry — a long multi-week
+ * program can legitimately run 60-90s per attempt. */
+const PROGRAM_NORMALIZE_TIMEOUT_MS = 180_000;
+/** Suggest = retrieval + one streamed LLM call. */
+const PROGRAM_SUGGEST_TIMEOUT_MS = 180_000;
+
+export type NormalizeResult =
+  | { isProgram: true; program: Program }
+  | { isProgram: false; reason: string | null };
+
+/**
+ * Pasted text -> canonical Program, or a rejection ("that's a recipe").
+ * Plain JSON, not a stream. The response's program is re-parsed through the
+ * contract schema: this is the one seam where the Python and TS mirrors
+ * meet, so drift should explode here with a clear log line, not surface as
+ * undefined fields deep in the editor.
+ */
+export async function normalizeProgram(
+  payload: { user_id: string; program_text: string },
+  opts: { requestId: string },
+): Promise<NormalizeResult> {
+  const res = await fetch(`${serverEnv.orchestratorUrl}/v1/programs/normalize`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Internal-Api-Key": serverEnv.orchestratorApiKey,
+      "X-Request-Id": opts.requestId,
+    },
+    body: JSON.stringify(payload),
+    signal: AbortSignal.timeout(PROGRAM_NORMALIZE_TIMEOUT_MS),
+  });
+
+  if (!res.ok) {
+    const detail = await res.text().catch(() => "");
+    let message = `Orchestrator normalize failed (${res.status})`;
+    try {
+      const parsed = JSON.parse(detail);
+      if (typeof parsed?.detail === "string") message = parsed.detail;
+    } catch {
+      /* non-JSON body — keep the generic message */
+    }
+    throw new OrchestratorError(message, res.status);
+  }
+
+  const data = (await res.json()) as {
+    is_program: boolean;
+    reason: string | null;
+    program: unknown;
+  };
+  if (!data.is_program) {
+    return { isProgram: false, reason: data.reason ?? null };
+  }
+  return { isProgram: true, program: programSchema.parse(data.program) };
+}
+
+export interface ProgramSuggestStream {
+  /** Sanitized NDJSON (program-protocol events) — pipe straight to the browser. */
+  events: ReadableStream<Uint8Array>;
+  /** Resolves on clean end; rejects on runtime error (then: don't charge quota). */
+  completion: Promise<{ suggestionCount: number }>;
+}
+
+/**
+ * Program + optional instruction -> relayed NDJSON suggestion stream.
+ * Sanitization: `assessment`/`suggestion` pass through untouched, `metrics`
+ * is logged and dropped (internal), `end` becomes the browser's `done`, and
+ * a runtime `error` is forwarded as an error EVENT (data, not a broken
+ * stream) so the client shows calm copy. Unknown types are dropped —
+ * the browser vocabulary is exactly program-protocol.ts.
+ */
+export async function streamProgramSuggestions(
+  payload: { user_id: string; program: Program; instruction: string | null },
+  opts: { requestId: string },
+): Promise<ProgramSuggestStream> {
+  const res = await fetch(`${serverEnv.orchestratorUrl}/v1/programs/suggest`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Internal-Api-Key": serverEnv.orchestratorApiKey,
+      "X-Request-Id": opts.requestId,
+    },
+    body: JSON.stringify(payload),
+    signal: AbortSignal.timeout(PROGRAM_SUGGEST_TIMEOUT_MS),
+  });
+
+  if (!res.ok || !res.body) {
+    const detail = await res.text().catch(() => "");
+    throw new Error(
+      `Orchestrator suggest failed (${res.status}): ${detail.slice(0, 500)}`,
+    );
+  }
+
+  const body = res.body;
+  const encoder = new TextEncoder();
+  let resolveCompletion!: (v: { suggestionCount: number }) => void;
+  let rejectCompletion!: (e: Error) => void;
+  const completion = new Promise<{ suggestionCount: number }>(
+    (resolve, reject) => {
+      resolveCompletion = resolve;
+      rejectCompletion = reject;
+    },
+  );
+  completion.catch(() => {}); // route attaches its own catch; avoid unhandled noise
+
+  let suggestionCount = 0;
+
+  const events = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      const reader = body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let runtimeError: Error | null = null;
+
+      const emit = (event: ProgramStreamEvent) => {
+        controller.enqueue(encoder.encode(JSON.stringify(event) + "\n"));
+      };
+
+      const handleLine = (line: string) => {
+        if (!line.trim()) return;
+        let event: { type?: string; [key: string]: unknown };
+        try {
+          event = JSON.parse(line);
+        } catch {
+          logger.warn("[Orchestrator] Unparseable suggest line", {
+            line: line.slice(0, 200),
+          });
+          return;
+        }
+        switch (event.type) {
+          case "assessment":
+          case "suggestion":
+            if (event.type === "suggestion") suggestionCount += 1;
+            controller.enqueue(encoder.encode(line + "\n"));
+            break;
+          case "metrics":
+            logger.info("[Orchestrator] Suggest metrics", {
+              metrics: event.data,
+            });
+            break;
+          case "error":
+            runtimeError = new Error(
+              (event.message as string) ?? "Orchestrator reported an error",
+            );
+            emit({ type: "error", message: runtimeError.message });
+            break;
+          case "end":
+            emit({ type: "done" });
+            break;
+        }
+      };
+
+      try {
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() ?? "";
+          for (const line of lines) handleLine(line);
+        }
+        if (buffer.trim()) handleLine(buffer);
+
+        controller.close();
+        if (runtimeError) rejectCompletion(runtimeError);
+        else resolveCompletion({ suggestionCount });
+      } catch (err) {
+        const error = err instanceof Error ? err : new Error(String(err));
+        logger.error("[Orchestrator] Suggest stream errored", {
+          err: error.message,
+        });
+        controller.error(error);
+        rejectCompletion(error);
+      }
+    },
+  });
+
+  return { events, completion };
 }

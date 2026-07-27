@@ -65,8 +65,33 @@ DOCS_RETRIEVED = Histogram(
     buckets=DOCS_BUCKETS
 )
 
-def record_request(metrics: RequestMetrics, outcome: str) -> None:
-    CHAT_REQUESTS.labels(outcome).inc()
+PROGRAM_REQUESTS = Counter(
+    "program_requests_total",
+    "Program AI operations handled by the runtime.",
+    ["op", "outcome"],  # op = normalize | suggest
+)
+# Outcome sets differ per op: only normalize can reject ("that's a recipe");
+# suggest either works or errors. Pre-created like CHAT_REQUESTS above.
+for _op, _outcomes in (("normalize", ("ok", "rejected", "error")), ("suggest", ("ok", "error"))):
+    for _outcome in _outcomes:
+        PROGRAM_REQUESTS.labels(_op, _outcome)
+
+PROGRAM_SUGGESTIONS = Counter(
+    "program_suggestions_total",
+    "Suggestions from the suggest pipeline, by validation status.",
+    # dropped/(emitted+dropped) is the LLM-quality signal: a rising drop
+    # rate means hallucinated target ids or malformed JSONL.
+    ["status"],  # emitted | dropped
+)
+for _status in ("emitted", "dropped"):
+    PROGRAM_SUGGESTIONS.labels(_status)
+
+
+def record_request(metrics: RequestMetrics, outcome: str, kind: str = "chat") -> None:
+    if kind == "chat":
+        CHAT_REQUESTS.labels(outcome).inc()
+    else:  # "program_normalize" | "program_suggest"
+        PROGRAM_REQUESTS.labels(kind.removeprefix("program_"), outcome).inc()
     for stage, ms in metrics.latencies_ms.items():
         STAGE_DURATION.labels(stage).observe(ms / 1000)
     
@@ -93,4 +118,11 @@ def record_request(metrics: RequestMetrics, outcome: str) -> None:
         VERIFIER_ISSUES.labels(issue).inc()
 
     DOCS_RETRIEVED.observe(metrics.docs_retrieved)
+
+
+def record_suggestions(emitted: int, dropped: int) -> None:
+    if emitted:
+        PROGRAM_SUGGESTIONS.labels("emitted").inc(emitted)
+    if dropped:
+        PROGRAM_SUGGESTIONS.labels("dropped").inc(dropped)
 

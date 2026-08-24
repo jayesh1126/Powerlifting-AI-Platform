@@ -1,6 +1,6 @@
 plugins {
 	java
-	id("org.springframework.boot") version "4.1.0"
+	id("org.springframework.boot") version "4.1.1"
 	id("io.spring.dependency-management") version "1.1.7"
 }
 
@@ -30,7 +30,7 @@ dependencies {
 	implementation("org.springframework.boot:spring-boot-starter-jdbc")
 	// OpenAPI spec + Swagger UI. The 3.0.x line targets Spring Boot 4 / Jackson 3;
 	// 2.x targets Boot 3 and fails at runtime here.
-	implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.3")
+	implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:3.1.0")
 	// Autoconfigures ChatClient.Builder and EmbeddingModel from spring.ai.openai.*.
 	// The unused capabilities (image, audio, moderation) are switched off in
 	// application.properties: each one builds its own HTTP client at startup and
